@@ -1,5 +1,5 @@
 # ── Stage 1: сборка ───────────────────────────────────────────────
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -18,6 +18,7 @@ WORKDIR /app
 
 COPY --from=builder /app/bin/app ./app
 COPY --from=builder /app/migrations ./migrations
+COPY .env .env
 
 EXPOSE 8081
 
