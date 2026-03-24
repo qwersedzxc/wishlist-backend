@@ -1,0 +1,102 @@
+version: "2"
+run:
+  tests: true
+  timeout: 5m
+  concurrency: 4
+linters:
+  default: none
+  enable:
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - dogsled
+    - dupl
+    - durationcheck
+    - errorlint
+    - errcheck
+    - errname
+    - exhaustive
+    - funlen
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - goheader
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - govet
+    - grouper
+    - importas
+    - ineffassign
+    - lll
+    - makezero
+    - misspell
+    - nestif
+    - nilerr
+    - noctx
+    - nolintlint
+    - nilnil
+    - nlreturn
+    - prealloc
+    - predeclared
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - tagliatelle
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - wastedassign
+    - whitespace
+  settings:
+    funlen:
+      lines: 150
+      statements: 80
+    lll:
+      line-length: 120
+    dupl:
+      threshold: 200
+    gocognit:
+      min-complexity: 30
+    gocyclo:
+      min-complexity: 30
+    errcheck:
+      check-blank: true
+      check-type-assertions: true
+    tagliatelle:
+      case:
+        rules:
+          json: camel
+          yaml: camel
+          xml: camel
+          env: upperSnake
+          envconfig: upperSnake
+  exclusions:
+    rules:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
