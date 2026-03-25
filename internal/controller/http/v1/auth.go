@@ -103,9 +103,9 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	h.log.Info("User authenticated successfully", "user_id", authResp.User.ID)
 
-	// Редиректим на фронтенд с токеном
-	redirectURL := h.frontendURL + "?token=" + authResp.Token
-	h.log.Info("Redirecting to frontend", "url", redirectURL)
+	// Редиректим на фронтенд с токеном в fragment (не попадает в логи и referrer)
+	redirectURL := h.frontendURL + "#token=" + authResp.Token
+	h.log.Info("Redirecting to frontend")
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
