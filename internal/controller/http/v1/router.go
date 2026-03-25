@@ -5,12 +5,12 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/middleware"
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/oauth"
-	"github.com/KaoriEl/golang-boilerplate/internal/types"
-	"github.com/KaoriEl/golang-boilerplate/internal/usecase"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/middleware"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/oauth"
+	"github.com/qwersedzxc/wishlist-backend/internal/types"
+	"github.com/qwersedzxc/wishlist-backend/internal/usecase"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
@@ -18,7 +18,7 @@ import (
 )
 
 // NewRouter собирает chi-роутер с маршрутами API v1 и Swagger UI.
-func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshipUC FriendshipUseCase, provider oauth.Provider, providerName string, s3cfg config.S3Cfg, emailService EmailService, log *slog.Logger) http.Handler {
+func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshipUC FriendshipUseCase, provider oauth.Provider, providerName string, s3cfg config.S3Cfg, frontendURL string, emailService EmailService, log *slog.Logger) http.Handler {
 	r := chi.NewRouter()
 
 	// Глобальные middleware
@@ -49,7 +49,7 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 	))
 
 	wishlistHandler := newWishlistHandler(wishlistUC, log)
-	authHandler := newAuthHandler(provider, providerName, authUC, log)
+	authHandler := newAuthHandler(provider, providerName, authUC, frontendURL, log)
 	uploadHandler := newUploadHandler(log, S3Config{
 		Endpoint:        s3cfg.Endpoint,
 		AccessKeyID:     s3cfg.AccessKeyID,

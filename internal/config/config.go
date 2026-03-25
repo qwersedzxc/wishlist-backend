@@ -50,6 +50,7 @@ type MultiSMTPCfg struct {
 // Config хранит параметры приложения.
 type Config struct {
 	AppURL             string
+	FrontendURL        string
 	Environment        string
 	LogLevel           string
 	Port               int
@@ -130,6 +131,7 @@ func MustLoad() *Config {
 
 	return &Config{
 		AppURL:             appURL,
+		FrontendURL:        readValueFromFileOrEnv("FRONTEND_URL"),
 		Environment:        mustReadValueFromFileOrEnv("APP_ENV"),
 		LogLevel:           readValueFromFileOrEnv("LOG_LEVEL"),
 		Port:               port,

@@ -23,15 +23,17 @@ type AuthHandler struct {
 	providerName string
 	stateStore   *oauth.StateStore
 	authUC       AuthUseCase
+	frontendURL  string
 	log          *slog.Logger
 }
 
-func newAuthHandler(provider oauth.Provider, providerName string, authUC AuthUseCase, log *slog.Logger) *AuthHandler {
+func newAuthHandler(provider oauth.Provider, providerName string, authUC AuthUseCase, frontendURL string, log *slog.Logger) *AuthHandler {
 	return &AuthHandler{
 		provider:     provider,
 		providerName: providerName,
 		stateStore:   oauth.NewStateStore(),
 		authUC:       authUC,
+		frontendURL:  frontendURL,
 		log:          log,
 	}
 }
@@ -102,7 +104,7 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	h.log.Info("User authenticated successfully", "user_id", authResp.User.ID)
 
 	// Редиректим на фронтенд с токеном
-	redirectURL := "http://localhost:3000?token=" + authResp.Token
+	redirectURL := h.frontendURL + "?token=" + authResp.Token
 	h.log.Info("Redirecting to frontend", "url", redirectURL)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }

@@ -97,7 +97,7 @@ func Run(ctx context.Context, cfg *config.Config, db *database.Database, log *sl
 		return err
 	}
 
-	router := v1.NewRouter(wishlistUC, authUC, friendshipUC, oauthProvider, cfg.OAuth.Provider, cfg.S3, emailService, log)
+	router := v1.NewRouter(wishlistUC, authUC, friendshipUC, oauthProvider, cfg.OAuth.Provider, cfg.S3, cfg.FrontendURL, emailService, log)
 
 	// Запускаем планировщик дней рождения
 	birthdayScheduler := scheduler.New(friendshipUC, emailService, log)
