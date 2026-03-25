@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/definitions"
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/definitions"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 type Repository struct {
@@ -59,29 +59,47 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (entity.Wishlist
 
 // List возвращает список вишлистов с пагинацией
 func (r *Repository) List(ctx context.Context, filter dto.WishlistFilter) ([]entity.Wishlist, int, error) {
-	sql, args, err := buildSelectWishlists(filter).ToSql()
+	// Используем window function COUNT(*) OVER() для получения total в одном запросе
+	baseQuery := buildSelectWishlists(filter)
+	
+	// Добавляем COUNT(*) OVER() для получения total count
+	sql, args, err := baseQuery.
+		Column("COUNT(*) OVER() as total_count").
+		ToSql()
 	if err != nil {
 		return nil, 0, err
 	}
 
-	var dbWishlists []dbWishlist
-	if err := pgxscan.Select(ctx, r.db, &dbWishlists, sql, args...); err != nil {
-		return nil, 0, err
-	}
-
-	countSQL, countArgs, err := buildCountWishlists(filter).ToSql()
+	rows, err := r.db.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, 0, err
 	}
+	defer rows.Close()
 
+	var wishlists []entity.Wishlist
 	var total int
-	if err := r.db.QueryRow(ctx, countSQL, countArgs...).Scan(&total); err != nil {
-		return nil, 0, err
+
+	for rows.Next() {
+		var dbWish dbWishlist
+		var totalCount int
+		
+		err := rows.Scan(
+			&dbWish.ID, &dbWish.UserID, &dbWish.Title, &dbWish.Description,
+			&dbWish.EventName, &dbWish.EventDate, &dbWish.ImageURL,
+			&dbWish.IsPublic, &dbWish.PrivacyLevel, &dbWish.ShareToken,
+			&dbWish.CreatedAt, &dbWish.UpdatedAt,
+			&totalCount,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		
+		wishlists = append(wishlists, dbWish.toEntity())
+		total = totalCount
 	}
 
-	wishlists := make([]entity.Wishlist, len(dbWishlists))
-	for i, dbWish := range dbWishlists {
-		wishlists[i] = dbWish.toEntity()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
 	}
 
 	return wishlists, total, nil
@@ -168,29 +186,47 @@ func (r *ItemRepository) GetByID(ctx context.Context, id uuid.UUID) (entity.Wish
 
 // List возвращает список элементов вишлиста
 func (r *ItemRepository) List(ctx context.Context, filter dto.WishlistItemFilter) ([]entity.WishlistItem, int, error) {
-	sql, args, err := buildSelectWishlistItems(filter).ToSql()
+	// Используем window function COUNT(*) OVER() для получения total в одном запросе
+	baseQuery := buildSelectWishlistItems(filter)
+	
+	// Добавляем COUNT(*) OVER() для получения total count
+	sql, args, err := baseQuery.
+		Column("COUNT(*) OVER() as total_count").
+		ToSql()
 	if err != nil {
 		return nil, 0, err
 	}
 
-	var dbItems []dbWishlistItem
-	if err := pgxscan.Select(ctx, r.db, &dbItems, sql, args...); err != nil {
-		return nil, 0, err
-	}
-
-	countSQL, countArgs, err := buildCountWishlistItems(filter).ToSql()
+	rows, err := r.db.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, 0, err
 	}
+	defer rows.Close()
 
+	var items []entity.WishlistItem
 	var total int
-	if err := r.db.QueryRow(ctx, countSQL, countArgs...).Scan(&total); err != nil {
-		return nil, 0, err
+
+	for rows.Next() {
+		var dbItem dbWishlistItem
+		var totalCount int
+		
+		err := rows.Scan(
+			&dbItem.ID, &dbItem.WishlistID, &dbItem.Title, &dbItem.Description,
+			&dbItem.URL, &dbItem.ImageURL, &dbItem.Price, &dbItem.Priority,
+			&dbItem.Category, &dbItem.IsPurchased, &dbItem.ReservedBy, &dbItem.ReservedAt,
+			&dbItem.IsIncognitoReservation, &dbItem.CreatedAt, &dbItem.UpdatedAt,
+			&totalCount,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		
+		items = append(items, dbItem.toEntity())
+		total = totalCount
 	}
 
-	items := make([]entity.WishlistItem, len(dbItems))
-	for i, dbItem := range dbItems {
-		items[i] = dbItem.toEntity()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
 	}
 
 	return items, total, nil

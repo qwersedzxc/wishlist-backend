@@ -4,7 +4,7 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
 )
 
 const (
@@ -38,27 +38,23 @@ func buildSelectWishlistByID(id uuid.UUID) sq.SelectBuilder {
 		Where(sq.Eq{"w.id": id})
 }
 
-// buildSelectWishlists создаёт SELECT-запрос для списка вишлистов
+// buildSelectWishlists создаёт SELECT-запрос для списка вишлистов (без JOIN)
 func buildSelectWishlists(filter dto.WishlistFilter) sq.SelectBuilder {
 	q := psql.
 		Select(
-			"w.id", "w.user_id", "w.title", "w.description", "w.event_name", "w.event_date",
-			"w.image_url", "w.is_public", "w.privacy_level", "w.share_token", "w.created_at", "w.updated_at",
-			"u.username AS author_username", "u.full_name AS author_full_name", "u.avatar_url AS author_avatar_url",
-			"u.bio AS author_bio", "u.city AS author_city", "u.phone AS author_phone",
-			"CAST(u.birth_date AS text) AS author_birth_date",
+			"id", "user_id", "title", "description", "event_name", "event_date",
+			"image_url", "is_public", "privacy_level", "share_token", "created_at", "updated_at",
 		).
-		From(wishlistsTable + " w").
-		LeftJoin("users u ON u.id = w.user_id")
+		From(wishlistsTable)
 
 	if filter.UserID != nil {
-		q = q.Where(sq.Eq{"w.user_id": *filter.UserID})
+		q = q.Where(sq.Eq{"user_id": *filter.UserID})
 	}
 	if filter.IsPublic != nil {
-		q = q.Where(sq.Eq{"w.is_public": *filter.IsPublic})
+		q = q.Where(sq.Eq{"is_public": *filter.IsPublic})
 	}
 
-	q = q.OrderBy("w.created_at DESC")
+	q = q.OrderBy("created_at DESC")
 
 	offset := (filter.Page - 1) * filter.PerPage
 	q = q.Limit(uint64(filter.PerPage)).Offset(uint64(offset))
@@ -68,13 +64,13 @@ func buildSelectWishlists(filter dto.WishlistFilter) sq.SelectBuilder {
 
 // buildCountWishlists создаёт COUNT-запрос для вишлистов
 func buildCountWishlists(filter dto.WishlistFilter) sq.SelectBuilder {
-	q := psql.Select("COUNT(*)").From(wishlistsTable + " w")
+	q := psql.Select("COUNT(*)").From(wishlistsTable)
 
 	if filter.UserID != nil {
-		q = q.Where(sq.Eq{"w.user_id": *filter.UserID})
+		q = q.Where(sq.Eq{"user_id": *filter.UserID})
 	}
 	if filter.IsPublic != nil {
-		q = q.Where(sq.Eq{"w.is_public": *filter.IsPublic})
+		q = q.Where(sq.Eq{"is_public": *filter.IsPublic})
 	}
 
 	return q
@@ -141,25 +137,23 @@ func buildSelectWishlistItemByID(id uuid.UUID) sq.SelectBuilder {
 		Where(sq.Eq{"wi.id": id})
 }
 
-// buildSelectWishlistItems создаёт SELECT-запрос для списка элементов
+// buildSelectWishlistItems создаёт SELECT-запрос для списка элементов (без JOIN)
 func buildSelectWishlistItems(filter dto.WishlistItemFilter) sq.SelectBuilder {
 	q := psql.
 		Select(
-			"wi.id", "wi.wishlist_id", "wi.title", "wi.description", "wi.url", "wi.image_url",
-			"wi.price", "wi.priority", "wi.category", "wi.is_purchased",
-			"wi.reserved_by", "wi.reserved_at", "wi.is_incognito_reservation",
-			"wi.created_at", "wi.updated_at",
-			"u.username AS reserved_by_username", "u.full_name AS reserved_by_full_name", "u.avatar_url AS reserved_by_avatar_url",
+			"id", "wishlist_id", "title", "description", "url", "image_url",
+			"price", "priority", "category", "is_purchased",
+			"reserved_by", "reserved_at", "is_incognito_reservation",
+			"created_at", "updated_at",
 		).
-		From(wishlistItemsTable + " wi").
-		LeftJoin("users u ON u.id = wi.reserved_by").
-		Where(sq.Eq{"wi.wishlist_id": filter.WishlistID})
+		From(wishlistItemsTable).
+		Where(sq.Eq{"wishlist_id": filter.WishlistID})
 
 	if filter.IsPurchased != nil {
-		q = q.Where(sq.Eq{"wi.is_purchased": *filter.IsPurchased})
+		q = q.Where(sq.Eq{"is_purchased": *filter.IsPurchased})
 	}
 
-	q = q.OrderBy("wi.priority DESC", "wi.created_at DESC")
+	q = q.OrderBy("priority DESC", "created_at DESC")
 
 	offset := (filter.Page - 1) * filter.PerPage
 	q = q.Limit(uint64(filter.PerPage)).Offset(uint64(offset))

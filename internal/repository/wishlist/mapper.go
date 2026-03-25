@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 // dbWishlist структура для сканирования из БД
@@ -23,14 +23,6 @@ type dbWishlist struct {
 	ShareToken   *string     `db:"share_token"`
 	CreatedAt    time.Time   `db:"created_at"`
 	UpdatedAt    time.Time   `db:"updated_at"`
-	// Поля автора (из JOIN с users)
-	AuthorUsername  *string `db:"author_username"`
-	AuthorFullName  *string `db:"author_full_name"`
-	AuthorAvatarURL *string `db:"author_avatar_url"`
-	AuthorBio       *string `db:"author_bio"`
-	AuthorCity      *string `db:"author_city"`
-	AuthorPhone     *string `db:"author_phone"`
-	AuthorBirthDate *string `db:"author_birth_date"`
 }
 
 func (db dbWishlist) toEntity() entity.Wishlist {
@@ -41,25 +33,18 @@ func (db dbWishlist) toEntity() entity.Wishlist {
 	}
 
 	return entity.Wishlist{
-		ID:              db.ID,
-		UserID:          db.UserID,
-		Title:           db.Title,
-		Description:     db.Description,
-		EventName:       db.EventName,
-		EventDate:       eventDate,
-		ImageURL:        db.ImageURL,
-		IsPublic:        db.IsPublic,
-		PrivacyLevel:    db.PrivacyLevel,
-		ShareToken:      db.ShareToken,
-		CreatedAt:       db.CreatedAt,
-		UpdatedAt:       db.UpdatedAt,
-		AuthorUsername:  db.AuthorUsername,
-		AuthorFullName:  db.AuthorFullName,
-		AuthorAvatarURL: db.AuthorAvatarURL,
-		AuthorBio:       db.AuthorBio,
-		AuthorCity:      db.AuthorCity,
-		AuthorPhone:     db.AuthorPhone,
-		AuthorBirthDate: db.AuthorBirthDate,
+		ID:           db.ID,
+		UserID:       db.UserID,
+		Title:        db.Title,
+		Description:  db.Description,
+		EventName:    db.EventName,
+		EventDate:    eventDate,
+		ImageURL:     db.ImageURL,
+		IsPublic:     db.IsPublic,
+		PrivacyLevel: db.PrivacyLevel,
+		ShareToken:   db.ShareToken,
+		CreatedAt:    db.CreatedAt,
+		UpdatedAt:    db.UpdatedAt,
 	}
 }
 
@@ -80,10 +65,6 @@ type dbWishlistItem struct {
 	IsIncognitoReservation bool             `db:"is_incognito_reservation"`
 	CreatedAt              time.Time        `db:"created_at"`
 	UpdatedAt              time.Time        `db:"updated_at"`
-	// Поля пользователя который забронировал (из JOIN с users)
-	ReservedByUsername  *string `db:"reserved_by_username"`
-	ReservedByFullName  *string `db:"reserved_by_full_name"`
-	ReservedByAvatarURL *string `db:"reserved_by_avatar_url"`
 }
 
 func (db dbWishlistItem) toEntity() entity.WishlistItem {
@@ -109,8 +90,5 @@ func (db dbWishlistItem) toEntity() entity.WishlistItem {
 		IsIncognitoReservation: db.IsIncognitoReservation,
 		CreatedAt:              db.CreatedAt,
 		UpdatedAt:              db.UpdatedAt,
-		ReservedByUsername:     db.ReservedByUsername,
-		ReservedByFullName:     db.ReservedByFullName,
-		ReservedByAvatarURL:    db.ReservedByAvatarURL,
 	}
 }
