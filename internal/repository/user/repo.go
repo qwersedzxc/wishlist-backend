@@ -9,7 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/definitions"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 type Repository struct {
@@ -73,7 +74,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*entity.User, e
 	user := &entity.User{}
 	if err := scanUser(r.db.QueryRow(ctx, query, args...), user); err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("user not found")
+			return nil, definitions.ErrNotFound
 		}
 		return nil, fmt.Errorf("execute query: %w", err)
 	}
@@ -91,7 +92,7 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (*entity.User
 	user := &entity.User{}
 	if err := scanUser(r.db.QueryRow(ctx, query, args...), user); err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("user not found")
+			return nil, definitions.ErrNotFound
 		}
 		return nil, fmt.Errorf("execute query: %w", err)
 	}
@@ -109,7 +110,7 @@ func (r *Repository) GetByUsername(ctx context.Context, username string) (*entit
 	user := &entity.User{}
 	if err := scanUser(r.db.QueryRow(ctx, query, args...), user); err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("user not found")
+			return nil, definitions.ErrNotFound
 		}
 		return nil, fmt.Errorf("execute query: %w", err)
 	}
@@ -127,7 +128,7 @@ func (r *Repository) GetByProviderID(ctx context.Context, provider, providerID s
 	user := &entity.User{}
 	if err := scanUser(r.db.QueryRow(ctx, query, args...), user); err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("user not found")
+			return nil, definitions.ErrNotFound
 		}
 		return nil, fmt.Errorf("execute query: %w", err)
 	}

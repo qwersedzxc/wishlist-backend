@@ -3,18 +3,18 @@ package v1
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/render"
 	"golang.org/x/oauth2"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1/request"
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1/response"
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/helpers"
-	"github.com/KaoriEl/golang-boilerplate/internal/oauth"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1/request"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1/response"
+	"github.com/qwersedzxc/wishlist-backend/internal/definitions"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/helpers"
+	"github.com/qwersedzxc/wishlist-backend/internal/oauth"
 )
 
 // AuthHandler обрабатывает HTTP-запросы авторизации.
@@ -163,7 +163,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 	u, err := h.authUC.GetUserByID(r.Context(), userID)
 	if err != nil {
-		if errors.Is(err, fmt.Errorf("user not found")) {
+		if errors.Is(err, definitions.ErrNotFound) {
 			render.Status(r, http.StatusNotFound)
 		} else {
 			render.Status(r, http.StatusInternalServerError)
