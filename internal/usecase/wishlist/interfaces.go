@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 // Repository интерфейс репозитория вишлистов

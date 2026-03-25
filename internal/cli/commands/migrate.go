@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/cobra"

@@ -4,8 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
-	"github.com/KaoriEl/golang-boilerplate/internal/database"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
+	"github.com/qwersedzxc/wishlist-backend/internal/database"
 	"github.com/spf13/cobra"
 )
 

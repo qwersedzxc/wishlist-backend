@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
 	"golang.org/x/oauth2"
 )
 

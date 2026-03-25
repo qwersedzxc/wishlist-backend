@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 // WishlistAuthor данные автора вишлиста
@@ -52,18 +52,7 @@ func NewWishlistResponse(w entity.Wishlist) WishlistResponse {
 		CreatedAt:    w.CreatedAt,
 		UpdatedAt:    w.UpdatedAt,
 	}
-	if w.AuthorUsername != nil {
-		resp.Author = &WishlistAuthor{
-			ID:        w.UserID,
-			Username:  *w.AuthorUsername,
-			FullName:  w.AuthorFullName,
-			AvatarURL: w.AuthorAvatarURL,
-			Bio:       w.AuthorBio,
-			City:      w.AuthorCity,
-			Phone:     w.AuthorPhone,
-			BirthDate: w.AuthorBirthDate,
-		}
-	}
+	// TODO: Author information should be fetched separately or via DTO
 	return resp
 }
 
@@ -150,15 +139,8 @@ func NewWishlistItemResponse(item entity.WishlistItem, currentUserID *uuid.UUID,
 	}
 
 	// Добавляем информацию о пользователе который забронировал
-	// Только если не инкогнито и есть данные
-	if isReserved && !item.IsIncognitoReservation && item.ReservedByUsername != nil {
-		resp.ReservedBy = &UserInfo{
-			ID:        *item.ReservedBy,
-			Username:  *item.ReservedByUsername,
-			FullName:  item.ReservedByFullName,
-			AvatarURL: item.ReservedByAvatarURL,
-		}
-	}
+	// TODO: ReservedBy information should be fetched separately or via DTO
+	// Currently entity doesn't contain JOIN fields
 
 	return resp
 }
