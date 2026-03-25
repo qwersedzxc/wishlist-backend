@@ -64,3 +64,48 @@ type WishlistItemFilter struct {
 	Page        int
 	PerPage     int
 }
+
+// WishlistWithAuthor представление вишлиста с данными автора (для JOIN запросов)
+type WishlistWithAuthor struct {
+	ID              uuid.UUID  `json:"id"`
+	UserID          uuid.UUID  `json:"userId"`
+	Title           string     `json:"title"`
+	Description     *string    `json:"description"`
+	EventName       *string    `json:"eventName"`
+	EventDate       *string    `json:"eventDate"`
+	ImageURL        *string    `json:"imageUrl"`
+	IsPublic        bool       `json:"isPublic"`
+	PrivacyLevel    string     `json:"privacyLevel"`
+	ShareToken      *string    `json:"shareToken"`
+	CreatedAt       string     `json:"createdAt"`
+	UpdatedAt       string     `json:"updatedAt"`
+	AuthorUsername  *string    `json:"authorUsername,omitempty"`
+	AuthorFullName  *string    `json:"authorFullName,omitempty"`
+	AuthorAvatarURL *string    `json:"authorAvatarUrl,omitempty"`
+	AuthorBio       *string    `json:"authorBio,omitempty"`
+	AuthorCity      *string    `json:"authorCity,omitempty"`
+	AuthorPhone     *string    `json:"authorPhone,omitempty"`
+	AuthorBirthDate *string    `json:"authorBirthDate,omitempty"`
+}
+
+// WishlistItemWithReserver представление элемента вишлиста с данными забронировавшего (для JOIN запросов)
+type WishlistItemWithReserver struct {
+	ID                     uuid.UUID  `json:"id"`
+	WishlistID             uuid.UUID  `json:"wishlistId"`
+	Title                  string     `json:"title"`
+	Description            *string    `json:"description"`
+	URL                    *string    `json:"url"`
+	ImageURL               *string    `json:"imageUrl"`
+	Price                  *float64   `json:"price"`
+	Priority               int        `json:"priority"`
+	Category               *string    `json:"category"`
+	IsPurchased            bool       `json:"isPurchased"`
+	ReservedBy             *uuid.UUID `json:"reservedBy"`
+	ReservedAt             *string    `json:"reservedAt"`
+	IsIncognitoReservation bool       `json:"isIncognitoReservation"`
+	CreatedAt              string     `json:"createdAt"`
+	UpdatedAt              string     `json:"updatedAt"`
+	ReservedByUsername     *string    `json:"reservedByUsername,omitempty"`
+	ReservedByFullName     *string    `json:"reservedByFullName,omitempty"`
+	ReservedByAvatarURL    *string    `json:"reservedByAvatarUrl,omitempty"`
+}

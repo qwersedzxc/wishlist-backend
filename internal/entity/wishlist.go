@@ -20,14 +20,6 @@ type Wishlist struct {
 	ShareToken   *string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
-	// Данные автора (опционально, из JOIN)
-	AuthorUsername  *string
-	AuthorFullName  *string
-	AuthorAvatarURL *string
-	AuthorBio       *string
-	AuthorCity      *string
-	AuthorPhone     *string
-	AuthorBirthDate *string
 }
 
 // WishlistItem представляет элемент в списке желаний
@@ -47,8 +39,4 @@ type WishlistItem struct {
 	IsIncognitoReservation bool
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
-	// Данные пользователя который забронировал (опционально, из JOIN)
-	ReservedByUsername  *string
-	ReservedByFullName  *string
-	ReservedByAvatarURL *string
 }
