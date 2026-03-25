@@ -1,4 +1,4 @@
-module github.com/KaoriEl/golang-boilerplate
+module github.com/qwersedzxc/wishlist-backend
 
 go 1.24
 
