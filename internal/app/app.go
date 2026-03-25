@@ -9,18 +9,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
-	v1 "github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1"
-	"github.com/KaoriEl/golang-boilerplate/internal/database"
-	"github.com/KaoriEl/golang-boilerplate/internal/email"
-	"github.com/KaoriEl/golang-boilerplate/internal/oauth"
-	friendshiprepo "github.com/KaoriEl/golang-boilerplate/internal/repository/friendship"
-	userrepo "github.com/KaoriEl/golang-boilerplate/internal/repository/user"
-	wishlistrepo "github.com/KaoriEl/golang-boilerplate/internal/repository/wishlist"
-	"github.com/KaoriEl/golang-boilerplate/internal/scheduler"
-	authuc "github.com/KaoriEl/golang-boilerplate/internal/usecase/auth"
-	friendshipuc "github.com/KaoriEl/golang-boilerplate/internal/usecase/friendship"
-	wishlistuc "github.com/KaoriEl/golang-boilerplate/internal/usecase/wishlist"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
+	v1 "github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1"
+	"github.com/qwersedzxc/wishlist-backend/internal/database"
+	"github.com/qwersedzxc/wishlist-backend/internal/email"
+	"github.com/qwersedzxc/wishlist-backend/internal/oauth"
+	friendshiprepo "github.com/qwersedzxc/wishlist-backend/internal/repository/friendship"
+	userrepo "github.com/qwersedzxc/wishlist-backend/internal/repository/user"
+	wishlistrepo "github.com/qwersedzxc/wishlist-backend/internal/repository/wishlist"
+	"github.com/qwersedzxc/wishlist-backend/internal/scheduler"
+	authuc "github.com/qwersedzxc/wishlist-backend/internal/usecase/auth"
+	friendshipuc "github.com/qwersedzxc/wishlist-backend/internal/usecase/friendship"
+	wishlistuc "github.com/qwersedzxc/wishlist-backend/internal/usecase/wishlist"
 	_ "github.com/jackc/pgx/v5/stdlib" //nolint:revive,nolintlint
 	"github.com/pressly/goose/v3"
 )
@@ -81,7 +81,12 @@ func Run(ctx context.Context, cfg *config.Config, db *database.Database, log *sl
 
 	// Инициализация auth компонентов
 	userRepo := userrepo.New(db.Pool)
-	authUC := authuc.New(userRepo, cfg.JWTSecret)
+	authUC := authuc.New(userRepo, authuc.JWTConfig{
+		Secret:      cfg.JWT.Secret,
+		ExpiryHours: cfg.JWT.ExpiryHours,
+		Issuer:      cfg.JWT.Issuer,
+		Audience:    cfg.JWT.Audience,
+	})
 
 	// Инициализация friendship компонентов
 	friendshipRepo := friendshiprepo.New(db.Pool)

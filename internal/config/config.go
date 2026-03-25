@@ -47,6 +47,14 @@ type MultiSMTPCfg struct {
 	Tertiary  SMTPCfg
 }
 
+// JWTCfg хранит параметры JWT токенов.
+type JWTCfg struct {
+	Secret      string
+	ExpiryHours int
+	Issuer      string
+	Audience    string
+}
+
 // Config хранит параметры приложения.
 type Config struct {
 	AppURL             string
@@ -55,7 +63,7 @@ type Config struct {
 	LogLevel           string
 	Port               int
 	DBConnectionString string
-	JWTSecret          string
+	JWT                JWTCfg
 	OAuth              OAuthCfg
 	S3                 S3Cfg
 	SMTP               MultiSMTPCfg
@@ -129,6 +137,16 @@ func MustLoad() *Config {
 		jwtSecret = "default-jwt-secret-for-development"
 	}
 
+	jwtExpiryHours := readValueAsInt("JWT_EXPIRY_HOURS", 168) // 7 дней по умолчанию
+	jwtIssuer := readValueFromFileOrEnv("JWT_ISSUER")
+	if jwtIssuer == "" {
+		jwtIssuer = "wishlist-backend"
+	}
+	jwtAudience := readValueFromFileOrEnv("JWT_AUDIENCE")
+	if jwtAudience == "" {
+		jwtAudience = "wishlist-frontend"
+	}
+
 	return &Config{
 		AppURL:             appURL,
 		FrontendURL:        readValueFromFileOrEnv("FRONTEND_URL"),
@@ -136,7 +154,12 @@ func MustLoad() *Config {
 		LogLevel:           readValueFromFileOrEnv("LOG_LEVEL"),
 		Port:               port,
 		DBConnectionString: makeDbConnectionString(),
-		JWTSecret:          jwtSecret,
+		JWT: JWTCfg{
+			Secret:      jwtSecret,
+			ExpiryHours: jwtExpiryHours,
+			Issuer:      jwtIssuer,
+			Audience:    jwtAudience,
+		},
 		OAuth: OAuthCfg{
 			Provider:     mustReadValueFromFileOrEnv("OAUTH_PROVIDER"),
 			ClientID:     mustReadValueFromFileOrEnv("OAUTH_CLIENT_ID"),

@@ -15,15 +15,22 @@ import (
 	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
-type UseCase struct {
-	userRepo  UserRepository
-	jwtSecret string
+type JWTConfig struct {
+	Secret      string
+	ExpiryHours int
+	Issuer      string
+	Audience    string
 }
 
-func New(userRepo UserRepository, jwtSecret string) *UseCase {
+type UseCase struct {
+	userRepo  UserRepository
+	jwtConfig JWTConfig
+}
+
+func New(userRepo UserRepository, jwtConfig JWTConfig) *UseCase {
 	return &UseCase{
 		userRepo:  userRepo,
-		jwtSecret: jwtSecret,
+		jwtConfig: jwtConfig,
 	}
 }
 
@@ -189,7 +196,7 @@ func (uc *UseCase) ValidateToken(tokenString string) (uuid.UUID, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method")
 		}
-		return []byte(uc.jwtSecret), nil
+		return []byte(uc.jwtConfig.Secret), nil
 	})
 
 	if err != nil {
@@ -197,7 +204,24 @@ func (uc *UseCase) ValidateToken(tokenString string) (uuid.UUID, error) {
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		userIDStr, ok := claims["user_id"].(string)
+		// Проверяем issuer
+		if iss, ok := claims["iss"].(string); !ok || iss != uc.jwtConfig.Issuer {
+			return uuid.Nil, fmt.Errorf("invalid issuer")
+		}
+
+		// Проверяем audience
+		if aud, ok := claims["aud"].(string); !ok || aud != uc.jwtConfig.Audience {
+			return uuid.Nil, fmt.Errorf("invalid audience")
+		}
+
+		// Проверяем nbf (not before)
+		if nbf, ok := claims["nbf"].(float64); ok {
+			if time.Now().Unix() < int64(nbf) {
+				return uuid.Nil, fmt.Errorf("token not yet valid")
+			}
+		}
+
+		userIDStr, ok := claims["sub"].(string)
 		if !ok {
 			return uuid.Nil, fmt.Errorf("invalid token claims")
 		}
@@ -215,13 +239,18 @@ func (uc *UseCase) ValidateToken(tokenString string) (uuid.UUID, error) {
 
 // generateToken генерирует JWT токен для пользователя
 func (uc *UseCase) generateToken(userID uuid.UUID) (string, error) {
+	now := time.Now()
 	claims := jwt.MapClaims{
-		"user_id": userID.String(),
-		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 дней
+		"sub": userID.String(),                                                  // subject (user ID)
+		"iss": uc.jwtConfig.Issuer,                                              // issuer
+		"aud": uc.jwtConfig.Audience,                                            // audience
+		"exp": now.Add(time.Hour * time.Duration(uc.jwtConfig.ExpiryHours)).Unix(), // expiration time
+		"nbf": now.Unix(),                                                       // not before
+		"iat": now.Unix(),                                                       // issued at
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(uc.jwtSecret))
+	tokenString, err := token.SignedString([]byte(uc.jwtConfig.Secret))
 	if err != nil {
 		return "", fmt.Errorf("sign token: %w", err)
 	}
