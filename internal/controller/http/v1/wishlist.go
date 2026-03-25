@@ -12,12 +12,12 @@ import (
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1/request"
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1/response"
-	"github.com/KaoriEl/golang-boilerplate/internal/definitions"
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/helpers"
-	"github.com/KaoriEl/golang-boilerplate/internal/usecase"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1/request"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1/response"
+	"github.com/qwersedzxc/wishlist-backend/internal/definitions"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/helpers"
+	"github.com/qwersedzxc/wishlist-backend/internal/usecase"
 )
 
 type WishlistHandler struct {
@@ -177,6 +177,7 @@ func (h *WishlistHandler) ListWishlists(w http.ResponseWriter, r *http.Request) 
 // @Param       body body request.UpdateWishlistRequest true "Данные для обновления"
 // @Success     200 {object} response.WishlistResponse
 // @Failure     400 {object} response.ErrorResponse
+// @Failure     403 {object} response.ErrorResponse
 // @Failure     404 {object} response.ErrorResponse
 // @Router      /wishlists/{id} [patch]
 func (h *WishlistHandler) UpdateWishlist(w http.ResponseWriter, r *http.Request) {
@@ -209,35 +210,18 @@ func (h *WishlistHandler) UpdateWishlist(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Проверяем что вишлист существует и принадлежит текущему пользователю
-	existingWishlist, err := h.uc.GetWishlist(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, definitions.ErrNotFound) {
-			render.Status(r, http.StatusNotFound)
-		} else {
-			render.Status(r, http.StatusInternalServerError)
-		}
-		render.JSON(w, r, response.NewErrorResponse(err))
-		return
-	}
-
-	// Проверяем что пользователь является владельцем
-	if existingWishlist.UserID != userID {
-		render.Status(r, http.StatusForbidden)
-		render.JSON(w, r, response.NewErrorResponse(errors.New("you can only update your own wishlists")))
-		return
-	}
-
 	input := dto.UpdateWishlistInput{
 		Title:       req.Title,
 		Description: req.Description,
 		IsPublic:    req.IsPublic,
 	}
 
-	wishlist, err := h.uc.UpdateWishlist(r.Context(), id, input)
+	wishlist, err := h.uc.UpdateWishlist(r.Context(), id, userID, input)
 	if err != nil {
 		if errors.Is(err, definitions.ErrNotFound) {
 			render.Status(r, http.StatusNotFound)
+		} else if errors.Is(err, definitions.ErrForbidden) {
+			render.Status(r, http.StatusForbidden)
 		} else {
 			render.Status(r, http.StatusInternalServerError)
 		}
@@ -253,6 +237,7 @@ func (h *WishlistHandler) UpdateWishlist(w http.ResponseWriter, r *http.Request)
 // @Tags        wishlists
 // @Param       id path string true "ID вишлиста"
 // @Success     204
+// @Failure     403 {object} response.ErrorResponse
 // @Failure     404 {object} response.ErrorResponse
 // @Router      /wishlists/{id} [delete]
 func (h *WishlistHandler) DeleteWishlist(w http.ResponseWriter, r *http.Request) {
@@ -272,28 +257,11 @@ func (h *WishlistHandler) DeleteWishlist(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Проверяем что вишлист существует и принадлежит текущему пользователю
-	wishlist, err := h.uc.GetWishlist(r.Context(), id)
-	if err != nil {
+	if err := h.uc.DeleteWishlist(r.Context(), id, userID); err != nil {
 		if errors.Is(err, definitions.ErrNotFound) {
 			render.Status(r, http.StatusNotFound)
-		} else {
-			render.Status(r, http.StatusInternalServerError)
-		}
-		render.JSON(w, r, response.NewErrorResponse(err))
-		return
-	}
-
-	// Проверяем что пользователь является владельцем
-	if wishlist.UserID != userID {
-		render.Status(r, http.StatusForbidden)
-		render.JSON(w, r, response.NewErrorResponse(errors.New("you can only delete your own wishlists")))
-		return
-	}
-
-	if err := h.uc.DeleteWishlist(r.Context(), id); err != nil {
-		if errors.Is(err, definitions.ErrNotFound) {
-			render.Status(r, http.StatusNotFound)
+		} else if errors.Is(err, definitions.ErrForbidden) {
+			render.Status(r, http.StatusForbidden)
 		} else {
 			render.Status(r, http.StatusInternalServerError)
 		}
@@ -313,6 +281,7 @@ func (h *WishlistHandler) DeleteWishlist(w http.ResponseWriter, r *http.Request)
 // @Param       body body request.CreateWishlistItemRequest true "Данные элемента"
 // @Success     201 {object} response.WishlistItemResponse
 // @Failure     400 {object} response.ErrorResponse
+// @Failure     403 {object} response.ErrorResponse
 // @Router      /wishlists/{wishlist_id}/items [post]
 func (h *WishlistHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 	wishlistIDStr := chi.URLParam(r, "wishlist_id")
@@ -336,6 +305,14 @@ func (h *WishlistHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем ID текущего пользователя
+	userID, err := helpers.GetUserIDFromCtx(r.Context())
+	if err != nil {
+		render.Status(r, http.StatusUnauthorized)
+		render.JSON(w, r, response.NewErrorResponse(errors.New("unauthorized")))
+		return
+	}
+
 	input := dto.CreateWishlistItemInput{
 		WishlistID:  wishlistID,
 		Title:       req.Title,
@@ -347,10 +324,12 @@ func (h *WishlistHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 		Category:    req.Category,
 	}
 
-	item, err := h.uc.CreateItem(r.Context(), input)
+	item, err := h.uc.CreateItem(r.Context(), userID, input)
 	if err != nil {
 		if errors.Is(err, definitions.ErrNotFound) {
 			render.Status(r, http.StatusNotFound)
+		} else if errors.Is(err, definitions.ErrForbidden) {
+			render.Status(r, http.StatusForbidden)
 		} else {
 			render.Status(r, http.StatusInternalServerError)
 		}
@@ -484,6 +463,7 @@ func (h *WishlistHandler) ListItems(w http.ResponseWriter, r *http.Request) {
 // @Param       body body request.UpdateWishlistItemRequest true "Данные для обновления"
 // @Success     200 {object} response.WishlistItemResponse
 // @Failure     400 {object} response.ErrorResponse
+// @Failure     403 {object} response.ErrorResponse
 // @Failure     404 {object} response.ErrorResponse
 // @Router      /wishlists/{wishlist_id}/items/{id} [patch]
 func (h *WishlistHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
@@ -508,6 +488,14 @@ func (h *WishlistHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем ID текущего пользователя
+	userID, err := helpers.GetUserIDFromCtx(r.Context())
+	if err != nil {
+		render.Status(r, http.StatusUnauthorized)
+		render.JSON(w, r, response.NewErrorResponse(errors.New("unauthorized")))
+		return
+	}
+
 	input := dto.UpdateWishlistItemInput{
 		Title:       req.Title,
 		Description: req.Description,
@@ -517,10 +505,12 @@ func (h *WishlistHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 		IsPurchased: req.IsPurchased,
 	}
 
-	item, err := h.uc.UpdateItem(r.Context(), id, input)
+	item, err := h.uc.UpdateItem(r.Context(), id, userID, input)
 	if err != nil {
 		if errors.Is(err, definitions.ErrNotFound) {
 			render.Status(r, http.StatusNotFound)
+		} else if errors.Is(err, definitions.ErrForbidden) {
+			render.Status(r, http.StatusForbidden)
 		} else {
 			render.Status(r, http.StatusInternalServerError)
 		}
@@ -548,6 +538,7 @@ func (h *WishlistHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 // @Param       wishlist_id path string true "ID вишлиста"
 // @Param       id path string true "ID элемента"
 // @Success     204
+// @Failure     403 {object} response.ErrorResponse
 // @Failure     404 {object} response.ErrorResponse
 // @Router      /wishlists/{wishlist_id}/items/{id} [delete]
 func (h *WishlistHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
@@ -559,9 +550,19 @@ func (h *WishlistHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.uc.DeleteItem(r.Context(), id); err != nil {
+	// Получаем ID текущего пользователя
+	userID, err := helpers.GetUserIDFromCtx(r.Context())
+	if err != nil {
+		render.Status(r, http.StatusUnauthorized)
+		render.JSON(w, r, response.NewErrorResponse(errors.New("unauthorized")))
+		return
+	}
+
+	if err := h.uc.DeleteItem(r.Context(), id, userID); err != nil {
 		if errors.Is(err, definitions.ErrNotFound) {
 			render.Status(r, http.StatusNotFound)
+		} else if errors.Is(err, definitions.ErrForbidden) {
+			render.Status(r, http.StatusForbidden)
 		} else {
 			render.Status(r, http.StatusInternalServerError)
 		}

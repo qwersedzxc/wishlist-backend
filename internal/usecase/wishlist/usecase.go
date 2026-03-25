@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/definitions"
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/definitions"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 type UseCase struct {
@@ -67,7 +67,20 @@ func (uc *UseCase) ListWishlists(ctx context.Context, filter dto.WishlistFilter)
 }
 
 // UpdateWishlist обновляет вишлист
-func (uc *UseCase) UpdateWishlist(ctx context.Context, id uuid.UUID, input dto.UpdateWishlistInput) (entity.Wishlist, error) {
+func (uc *UseCase) UpdateWishlist(ctx context.Context, id, userID uuid.UUID, input dto.UpdateWishlistInput) (entity.Wishlist, error) {
+	// Проверяем что вишлист существует
+	existingWishlist, err := uc.repo.GetByID(ctx, id)
+	if err != nil {
+		uc.log.ErrorContext(ctx, "failed to get wishlist", "id", id, "error", err)
+		return entity.Wishlist{}, err
+	}
+
+	// Проверяем что пользователь является владельцем
+	if existingWishlist.UserID != userID {
+		uc.log.WarnContext(ctx, "user attempted to update wishlist they don't own", "wishlistID", id, "userID", userID, "ownerID", existingWishlist.UserID)
+		return entity.Wishlist{}, definitions.ErrForbidden
+	}
+
 	wishlist, err := uc.repo.Update(ctx, id, input)
 	if err != nil {
 		uc.log.ErrorContext(ctx, "failed to update wishlist", "id", id, "error", err)
@@ -79,7 +92,20 @@ func (uc *UseCase) UpdateWishlist(ctx context.Context, id uuid.UUID, input dto.U
 }
 
 // DeleteWishlist удаляет вишлист
-func (uc *UseCase) DeleteWishlist(ctx context.Context, id uuid.UUID) error {
+func (uc *UseCase) DeleteWishlist(ctx context.Context, id, userID uuid.UUID) error {
+	// Проверяем что вишлист существует
+	wishlist, err := uc.repo.GetByID(ctx, id)
+	if err != nil {
+		uc.log.ErrorContext(ctx, "failed to get wishlist", "id", id, "error", err)
+		return err
+	}
+
+	// Проверяем что пользователь является владельцем
+	if wishlist.UserID != userID {
+		uc.log.WarnContext(ctx, "user attempted to delete wishlist they don't own", "wishlistID", id, "userID", userID, "ownerID", wishlist.UserID)
+		return definitions.ErrForbidden
+	}
+
 	if err := uc.repo.Delete(ctx, id); err != nil {
 		uc.log.ErrorContext(ctx, "failed to delete wishlist", "id", id, "error", err)
 		return err
@@ -90,10 +116,17 @@ func (uc *UseCase) DeleteWishlist(ctx context.Context, id uuid.UUID) error {
 }
 
 // CreateItem создаёт элемент вишлиста
-func (uc *UseCase) CreateItem(ctx context.Context, input dto.CreateWishlistItemInput) (entity.WishlistItem, error) {
-	// Проверяем существование вишлиста
-	if _, err := uc.repo.GetByID(ctx, input.WishlistID); err != nil {
+func (uc *UseCase) CreateItem(ctx context.Context, userID uuid.UUID, input dto.CreateWishlistItemInput) (entity.WishlistItem, error) {
+	// Проверяем существование вишлиста и права доступа
+	wishlist, err := uc.repo.GetByID(ctx, input.WishlistID)
+	if err != nil {
 		return entity.WishlistItem{}, err
+	}
+
+	// Проверяем что пользователь является владельцем вишлиста
+	if wishlist.UserID != userID {
+		uc.log.WarnContext(ctx, "user attempted to create item in wishlist they don't own", "wishlistID", input.WishlistID, "userID", userID, "ownerID", wishlist.UserID)
+		return entity.WishlistItem{}, definitions.ErrForbidden
 	}
 
 	item, err := uc.itemRepo.Create(ctx, input)
@@ -136,7 +169,27 @@ func (uc *UseCase) ListItems(ctx context.Context, filter dto.WishlistItemFilter)
 }
 
 // UpdateItem обновляет элемент вишлиста
-func (uc *UseCase) UpdateItem(ctx context.Context, id uuid.UUID, input dto.UpdateWishlistItemInput) (entity.WishlistItem, error) {
+func (uc *UseCase) UpdateItem(ctx context.Context, id, userID uuid.UUID, input dto.UpdateWishlistItemInput) (entity.WishlistItem, error) {
+	// Получаем элемент
+	existingItem, err := uc.itemRepo.GetByID(ctx, id)
+	if err != nil {
+		uc.log.ErrorContext(ctx, "failed to get item", "id", id, "error", err)
+		return entity.WishlistItem{}, err
+	}
+
+	// Получаем вишлист для проверки владельца
+	wishlist, err := uc.repo.GetByID(ctx, existingItem.WishlistID)
+	if err != nil {
+		uc.log.ErrorContext(ctx, "failed to get wishlist", "wishlistID", existingItem.WishlistID, "error", err)
+		return entity.WishlistItem{}, err
+	}
+
+	// Проверяем что пользователь является владельцем вишлиста
+	if wishlist.UserID != userID {
+		uc.log.WarnContext(ctx, "user attempted to update item in wishlist they don't own", "itemID", id, "userID", userID, "ownerID", wishlist.UserID)
+		return entity.WishlistItem{}, definitions.ErrForbidden
+	}
+
 	item, err := uc.itemRepo.Update(ctx, id, input)
 	if err != nil {
 		uc.log.ErrorContext(ctx, "failed to update wishlist item", "id", id, "error", err)
@@ -148,7 +201,27 @@ func (uc *UseCase) UpdateItem(ctx context.Context, id uuid.UUID, input dto.Updat
 }
 
 // DeleteItem удаляет элемент вишлиста
-func (uc *UseCase) DeleteItem(ctx context.Context, id uuid.UUID) error {
+func (uc *UseCase) DeleteItem(ctx context.Context, id, userID uuid.UUID) error {
+	// Получаем элемент
+	item, err := uc.itemRepo.GetByID(ctx, id)
+	if err != nil {
+		uc.log.ErrorContext(ctx, "failed to get item", "id", id, "error", err)
+		return err
+	}
+
+	// Получаем вишлист для проверки владельца
+	wishlist, err := uc.repo.GetByID(ctx, item.WishlistID)
+	if err != nil {
+		uc.log.ErrorContext(ctx, "failed to get wishlist", "wishlistID", item.WishlistID, "error", err)
+		return err
+	}
+
+	// Проверяем что пользователь является владельцем вишлиста
+	if wishlist.UserID != userID {
+		uc.log.WarnContext(ctx, "user attempted to delete item in wishlist they don't own", "itemID", id, "userID", userID, "ownerID", wishlist.UserID)
+		return definitions.ErrForbidden
+	}
+
 	if err := uc.itemRepo.Delete(ctx, id); err != nil {
 		uc.log.ErrorContext(ctx, "failed to delete wishlist item", "id", id, "error", err)
 		return err
