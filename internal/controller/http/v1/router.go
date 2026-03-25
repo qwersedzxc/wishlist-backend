@@ -50,7 +50,7 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 
 	wishlistHandler := newWishlistHandler(wishlistUC, log)
 	authHandler := newAuthHandler(provider, providerName, authUC, frontendURL, log)
-	uploadHandler := newUploadHandler(log, S3Config{
+	uploadHandler, err := newUploadHandler(log, S3Config{
 		Endpoint:        s3cfg.Endpoint,
 		AccessKeyID:     s3cfg.AccessKeyID,
 		SecretAccessKey: s3cfg.SecretAccessKey,
@@ -58,6 +58,10 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 		BaseURL:         s3cfg.BaseURL,
 		Region:          s3cfg.Region,
 	})
+	if err != nil {
+		log.Error("failed to initialize upload handler", "error", err)
+		panic(fmt.Sprintf("failed to initialize upload handler: %v", err))
+	}
 	friendshipHandler := newFriendshipHandler(friendshipUC, emailService, log)
 
 	r.Route("/api/v1", func(r chi.Router) {

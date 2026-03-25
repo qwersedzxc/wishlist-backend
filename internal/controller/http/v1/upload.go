@@ -37,7 +37,12 @@ type S3Config struct {
 	Region          string
 }
 
-func newUploadHandler(log *slog.Logger, cfg S3Config) *UploadHandler {
+func newUploadHandler(log *slog.Logger, cfg S3Config) (*UploadHandler, error) {
+	// Проверяем обязательные параметры
+	if cfg.Endpoint == "" || cfg.AccessKeyID == "" || cfg.SecretAccessKey == "" || cfg.Bucket == "" {
+		return nil, fmt.Errorf("S3 config is incomplete: endpoint, accessKeyID, secretAccessKey, and bucket are required")
+	}
+
 	// Создаем кастомный resolver для Yandex Cloud
 	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 		if service == s3.ServiceID {
@@ -60,7 +65,7 @@ func newUploadHandler(log *slog.Logger, cfg S3Config) *UploadHandler {
 		)),
 	)
 	if err != nil {
-		log.Error("failed to load AWS config", "error", err)
+		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
 	s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
@@ -77,7 +82,7 @@ func newUploadHandler(log *slog.Logger, cfg S3Config) *UploadHandler {
 		s3Client: s3Client,
 		bucket:   cfg.Bucket,
 		baseURL:  cfg.BaseURL,
-	}
+	}, nil
 }
 
 // UploadResponse ответ при загрузке файла
