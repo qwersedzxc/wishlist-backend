@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	
-	"github.com/KaoriEl/golang-boilerplate/internal/helpers"
+	"github.com/qwersedzxc/wishlist-backend/internal/helpers"
 )
 
 // AuthUseCase интерфейс для валидации токенов
@@ -21,7 +21,6 @@ func Auth(authUC AuthUseCase, log *slog.Logger) func(http.Handler) http.Handler 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Извлекаем токен из заголовка Authorization
 			authHeader := r.Header.Get("Authorization")
-			log.Info("Auth middleware", "path", r.URL.Path, "authHeader", authHeader)
 			
 			if authHeader == "" {
 				log.Warn("missing authorization header", "path", r.URL.Path)
@@ -32,7 +31,7 @@ func Auth(authUC AuthUseCase, log *slog.Logger) func(http.Handler) http.Handler 
 			// Проверяем формат "Bearer <token>"
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || parts[0] != "Bearer" {
-				log.Warn("invalid authorization header format", "path", r.URL.Path, "header", authHeader)
+				log.Warn("invalid authorization header format", "path", r.URL.Path)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
