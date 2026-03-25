@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,8 +10,9 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/definitions"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 type UseCase struct {
@@ -43,15 +45,21 @@ func userToOutput(user *entity.User) *dto.UserOutput {
 // Register регистрирует нового пользователя
 func (uc *UseCase) Register(ctx context.Context, input dto.UserRegisterInput) (*dto.AuthResponse, error) {
 	// Проверяем, не существует ли пользователь с таким email
-	existingUser, _ := uc.userRepo.GetByEmail(ctx, input.Email)
+	existingUser, err := uc.userRepo.GetByEmail(ctx, input.Email)
+	if err != nil && !errors.Is(err, definitions.ErrNotFound) {
+		return nil, fmt.Errorf("check email: %w", err)
+	}
 	if existingUser != nil {
-		return nil, fmt.Errorf("user with this email already exists")
+		return nil, definitions.ErrAlreadyExists
 	}
 
 	// Проверяем, не существует ли пользователь с таким username
-	existingUser, _ = uc.userRepo.GetByUsername(ctx, input.Username)
+	existingUser, err = uc.userRepo.GetByUsername(ctx, input.Username)
+	if err != nil && !errors.Is(err, definitions.ErrNotFound) {
+		return nil, fmt.Errorf("check username: %w", err)
+	}
 	if existingUser != nil {
-		return nil, fmt.Errorf("user with this username already exists")
+		return nil, definitions.ErrAlreadyExists
 	}
 
 	// Хешируем пароль
