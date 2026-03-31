@@ -44,8 +44,11 @@ services:
       - "80:80"
     volumes:
       - ./nginx-docker.conf:/etc/nginx/nginx.conf:ro
+      - ../wishlist-frontend-master/public:/usr/share/nginx/html:ro
     depends_on:
       - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     networks:
       - wishlist_network
