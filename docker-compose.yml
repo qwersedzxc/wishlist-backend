@@ -37,16 +37,27 @@ services:
     networks:
       - wishlist_network
 
+  frontend:
+    build:
+      context: ../wishlist-frontend-master
+      dockerfile: Dockerfile
+    container_name: wishlist_frontend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    networks:
+      - wishlist_network
+
   nginx:
     image: nginx:alpine
     container_name: wishlist_nginx
     ports:
       - "80:80"
     volumes:
-      - ./nginx-docker.conf:/etc/nginx/nginx.conf:ro
-      - ../wishlist-frontend-master/public:/usr/share/nginx/html:ro
+      - ./nginx-production.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - backend
+      - frontend
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
