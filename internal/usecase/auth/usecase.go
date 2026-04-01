@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,14 +15,18 @@ import (
 )
 
 type UseCase struct {
-	userRepo  UserRepository
+	userRepo UserRepository
+	roleRepo RoleRepository
 	jwtSecret string
+	log      *slog.Logger
 }
 
-func New(userRepo UserRepository, jwtSecret string) *UseCase {
+func New(userRepo UserRepository, roleRepo RoleRepository, jwtSecret string, log *slog.Logger) *UseCase {
 	return &UseCase{
 		userRepo:  userRepo,
+		roleRepo:  roleRepo,
 		jwtSecret: jwtSecret,
+		log:       log,
 	}
 }
 
@@ -73,6 +78,14 @@ func (uc *UseCase) Register(ctx context.Context, input dto.UserRegisterInput) (*
 	err = uc.userRepo.Create(ctx, user)
 	if err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
+	}
+
+	// Назначаем роль "user" новому пользователю
+	if uc.roleRepo != nil {
+		userRole, err := uc.roleRepo.GetRoleByName(ctx, "user")
+		if err == nil && userRole != nil {
+			_ = uc.roleRepo.AssignRoleToUser(ctx, user.ID, userRole.ID, nil)
+		}
 	}
 
 	// Генерируем JWT токен
@@ -144,6 +157,27 @@ func (uc *UseCase) FindOrCreateByOAuth(ctx context.Context, provider, providerID
 			}
 			if err := uc.userRepo.Create(ctx, user); err != nil {
 				return nil, fmt.Errorf("create user: %w", err)
+			}
+
+			uc.log.Info("new user created via OAuth", "userID", user.ID, "email", email, "provider", provider)
+
+			// Назначаем роль "user" новому пользователю
+			if uc.roleRepo != nil {
+				userRole, err := uc.roleRepo.GetRoleByName(ctx, "user")
+				if err != nil {
+					uc.log.Error("failed to get user role", "error", err)
+				} else if userRole != nil {
+					err = uc.roleRepo.AssignRoleToUser(ctx, user.ID, userRole.ID, nil)
+					if err != nil {
+						uc.log.Error("failed to assign role", "error", err, "userID", user.ID, "roleID", userRole.ID)
+					} else {
+						uc.log.Info("role assigned to user", "userID", user.ID, "roleID", userRole.ID, "roleName", userRole.Name)
+					}
+				} else {
+					uc.log.Warn("user role not found in database")
+				}
+			} else {
+				uc.log.Warn("roleRepo is nil")
 			}
 		}
 	}

@@ -17,3 +17,8 @@ type UserRepository interface {
 	UpdateProfile(ctx context.Context, id uuid.UUID, fullName, bio, phone, city *string, birthDate *string) (*entity.User, error)
 	SearchUsers(ctx context.Context, query string, limit int) ([]*entity.User, error)
 }
+
+type RoleRepository interface {
+	GetRoleByName(ctx context.Context, name string) (*entity.Role, error)
+	AssignRoleToUser(ctx context.Context, userID uuid.UUID, roleID int, grantedBy *uuid.UUID) error
+}

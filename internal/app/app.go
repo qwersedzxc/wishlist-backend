@@ -15,6 +15,7 @@ import (
 	"github.com/KaoriEl/golang-boilerplate/internal/email"
 	"github.com/KaoriEl/golang-boilerplate/internal/oauth"
 	friendshiprepo "github.com/KaoriEl/golang-boilerplate/internal/repository/friendship"
+	rolerepo "github.com/KaoriEl/golang-boilerplate/internal/repository/role"
 	userrepo "github.com/KaoriEl/golang-boilerplate/internal/repository/user"
 	wishlistrepo "github.com/KaoriEl/golang-boilerplate/internal/repository/wishlist"
 	"github.com/KaoriEl/golang-boilerplate/internal/scheduler"
@@ -79,9 +80,12 @@ func Run(ctx context.Context, cfg *config.Config, db *database.Database, log *sl
 	wishlistItemRepo := wishlistrepo.NewItemRepository(db.Pool)
 	wishlistUC := wishlistuc.New(wishlistRepo, wishlistItemRepo, log)
 
+	// Инициализация role компонентов
+	roleRepo := rolerepo.New(db.Pool)
+
 	// Инициализация auth компонентов
 	userRepo := userrepo.New(db.Pool)
-	authUC := authuc.New(userRepo, cfg.JWTSecret)
+	authUC := authuc.New(userRepo, roleRepo, cfg.JWTSecret, log)
 
 	// Инициализация friendship компонентов
 	friendshipRepo := friendshiprepo.New(db.Pool)
@@ -97,7 +101,7 @@ func Run(ctx context.Context, cfg *config.Config, db *database.Database, log *sl
 		return err
 	}
 
-	router := v1.NewRouter(wishlistUC, authUC, friendshipUC, oauthProvider, cfg.OAuth.Provider, cfg.S3, emailService, log)
+	router := v1.NewRouter(wishlistUC, authUC, friendshipUC, roleRepo, oauthProvider, cfg.OAuth.Provider, cfg.S3, emailService, log)
 
 	// Запускаем планировщик дней рождения
 	birthdayScheduler := scheduler.New(friendshipUC, emailService, log)

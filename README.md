@@ -138,66 +138,39 @@ make run
 ## Структура проекта
 
 ```
-.
-├── cmd/
-│   ├── app/main.go          ← точка входа HTTP-сервера
-│   └── cli/main.go          ← точка входа CLI-утилиты
-├── internal/
-│   ├── app/
-│   │   └── app.go           ← сборка зависимостей (DI), запуск сервера
-│   ├── config/
-│   │   └── config.go        ← загрузка конфигурации из .env / Vault
-│   ├── database/
-│   │   └── database.go      ← pgxpool + squirrel builder
-│   ├── logger/
-│   │   └── logger.go        ← slog с JSON-форматом
-│   ├── entity/
-│   │   └── article.go       ← доменные сущности (чистые Go-структуры)
-│   ├── dto/
-│   │   └── article.go       ← input/filter структуры для usecase
-│   ├── definitions/
-│   │   ├── errors.go        ← sentinel-ошибки (ErrNotFound, ErrForbidden...)
-│   │   └── constants.go     ← константы пагинации и прочее
-│   ├── usecase/
-│   │   ├── contracts.go     ← публичный интерфейс ArticleUseCase
-│   │   └── article/
-│   │       ├── interfaces.go ← интерфейс Repository (что нужно от БД)
-│   │       └── usecase.go   ← реализация бизнес-логики
-│   ├── repository/
-│   │   └── article/
-│   │       ├── repo.go      ← реализация запросов к PostgreSQL
-│   │       ├── queries.go   ← squirrel query-builders
-│   │       └── mapper.go    ← преобразование DB-строк в entity
-│   ├── controller/
-│   │   └── http/
-│   │       ├── middleware/  ← recoverer, json content-type, auth
-│   │       └── v1/
-│   │           ├── router.go      ← регистрация маршрутов
-│   │           ├── article.go     ← хендлеры статей
-│   │           ├── auth.go        ← хендлеры OAuth2
-│   │           ├── request/       ← структуры входящих запросов
-│   │           └── response/      ← структуры ответов + маппинг ошибок
-│   ├── oauth/
-│   │   ├── provider.go      ← интерфейс Provider, фабрика New()
-│   │   ├── github.go        ← реализация GitHub OAuth2
-│   │   └── state.go         ← CSRF state store (in-memory)
-│   ├── cli/
-│   │   ├── root.go          ← корневая cobra-команда
-│   │   └── commands/        ← healthz, migrate:up/down/status/create
-│   ├── helpers/
-│   │   ├── context.go       ← типизированный доступ к context
-│   │   ├── validator.go     ← синглтон validator + form decoder
-│   │   ├── slice.go         ← обёртки над samber/lo
-│   │   └── ptr.go           ← ToPtr / FromPtr дженерики
-│   └── testhelpers/
-│       └── helpers.go       ← утилиты для тестов
-├── migrations/
-│   └── 00001_create_articles.sql  ← goose-миграции
-├── docs/swagger/            ← автогенерируемая документация (make swag)
-├── Dockerfile
-├── docker-compose.yml
-├── Makefile
-└── .env.example
+wishlist-backend/
+│
+├── cmd/                          # Точки входа
+│   ├── app/main.go              # Основное приложение
+│   └── cli/main.go              # CLI команды
+│
+├── internal/                     # Внутренняя логика
+│   ├── app/                     # Инициализация приложения
+│   ├── config/                  # Конфигурация
+│   ├── controller/http/         # HTTP контроллеры
+│   │   ├── middleware/          # Промежуточное ПО
+│   │   └── v1/                  # API v1
+│   │       ├── auth.go          # Аутентификация
+│   │       ├── wishlist.go      # Вишлисты
+│   │       └── friendship.go    # Друзья
+│   │
+│   ├── usecase/                 # Бизнес-логика
+│   │   ├── auth/                # Логика авторизации
+│   │   ├── wishlist/            # Логика вишлистов
+│   │   └── friendship/          # Логика дружбы
+│   │
+│   ├── repository/              # Работа с БД
+│   │   ├── user/                # Пользователи
+│   │   ├── wishlist/            # Вишлисты
+│   │   └── friendship/          # Дружеские связи
+│   │
+│   └── entity/                  # Модели данных
+│       ├── user.go
+│       └── wishlist.go
+│
+├── migrations/                   # Миграции БД
+└── docker-compose.yml           # Оркестрация контейнеров
+
 ```
 
 ---
@@ -326,306 +299,16 @@ make migrate-create
 #  Migration created: add_users_table
 ```
 
-Будет создан файл `migrations/00002_add_users_table.sql`.
+Посмотреть все роли в системе:
 
-### Формат файла миграции
+docker exec wishlist_postgres psql -U postgres -d wishlist -c "SELECT id, name, description FROM roles;"
 
-```sql
--- +goose Up
--- +goose StatementBegin
-CREATE TABLE IF NOT EXISTS users (
-    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    email      VARCHAR(255) NOT NULL UNIQUE,
-    name       VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ  NOT NULL DEFAULT now()
-);
-COMMENT ON TABLE users IS 'Пользователи системы';
-COMMENT ON COLUMN users.email IS 'Email адрес пользователя';
--- +goose StatementEnd
+Посмотреть все пользователи и их роли:
 
--- +goose Down
--- +goose StatementBegin
-DROP TABLE IF EXISTS users;
--- +goose StatementEnd
-```
+docker exec wishlist_postgres psql -U postgres -d wishlist -c "
+SELECT u.username, u.email, r.name as role 
+FROM users u 
+LEFT JOIN user_roles ur ON u.id = ur.user_id AND ur.is_active = true 
+LEFT JOIN roles r ON ur.role_id = r.id 
+ORDER BY u.username;"
 
-### Правила
-
-- Именование файлов: `00001_snake_case_description.sql` (5 цифр + описание)
-- Один файл одна логическая миграция, содержит и `Up` и `Down`
-- Всегда использовать `IF NOT EXISTS` / `IF EXISTS` для идемпотентности
-- Добавлять `COMMENT ON TABLE` и `COMMENT ON COLUMN` на русском
-- Создавать индексы для полей, по которым будет фильтрация или сортировка
-- `Down` должен полностью отменять всё что делает `Up`
-
----
-
-## API
-
-Base URL: `http://localhost:8080/api/v1`
-
-### Вишлисты
-
-| Метод | Путь | Описание |
-|---|---|---|
-| `GET` | `/wishlists` | Список вишлистов (фильтры: `user_id`, `is_public`, пагинация: `page`, `per_page`) |
-| `POST` | `/wishlists` | Создать вишлист |
-| `GET` | `/wishlists/{id}` | Получить вишлист по UUID |
-| `PATCH` | `/wishlists/{id}` | Обновить вишлист (partial update) |
-| `DELETE` | `/wishlists/{id}` | Удалить вишлист |
-
-### Элементы вишлиста
-
-| Метод | Путь | Описание |
-|---|---|---|
-| `GET` | `/wishlists/{wishlist_id}/items` | Список элементов вишлиста (фильтр: `is_purchased`, пагинация) |
-| `POST` | `/wishlists/{wishlist_id}/items` | Добавить элемент в вишлист |
-| `GET` | `/wishlists/{wishlist_id}/items/{id}` | Получить элемент по UUID |
-| `PATCH` | `/wishlists/{wishlist_id}/items/{id}` | Обновить элемент (partial update) |
-| `DELETE` | `/wishlists/{wishlist_id}/items/{id}` | Удалить элемент |
-
-### Postman коллекция
-
-Для тестирования API можно импортировать коллекцию в Postman:
-
-`postman/Wishlist App.postman_collection.json`
-
-
-### Формат ошибок
-
-Все ошибки возвращаются в едином формате:
-
-```json
-{
-  "error": "not found",
-  "code": 404
-}
-```
-
----
-
-## Линтер
-
-Для поддержания качества кода используется `golangci-lint` с набором принятых у нас линтеров, обязательно запускай `make lint` перед коммитом.
-
----
-
-## OAuth2
-
-Шаблон содержит готовую структуру для OAuth2-авторизации через GitHub, она указана как пример, но ты можешь легко добавить любой другой провайдер (VK, Google, Facebook и т.д.)
-
-
-### Добавить нового провайдера
-
-1. Создай файл `internal/oauth/<name>.go`
-2. Реализуй интерфейс `Provider`:
-   ```go
-   type Provider interface {
-       Config() *oauth2.Config
-       GetUserInfo(ctx context.Context, token *oauth2.Token) (UserInfo, error)
-   }
-   ```
-3. Добавь `case` в `internal/oauth/provider.go`:
-   ```go
-   case "myProvider":
-       return newMyProvider(cfg), nil
-   ```
-4. Установи `OAUTH_PROVIDER=myProvider` в `.env`
-
----
-
-## Swagger
-
-Swagger UI доступен по адресу: `http://localhost:8081/swagger/index.html`
-
-### Регенерация документации
-
-После изменения аннотаций в хендлерах:
-
-```bash
-make swag
-```
-
-### Аннотации
-
-Пример аннотации хендлера:
-
-```go
-// Create godoc
-// @Summary     Создать статью
-// @Tags        articles
-// @Accept      json
-// @Produce     json
-// @Param       body body request.CreateArticleRequest true "Данные статьи"
-// @Success     201 {object} response.ArticleResponse
-// @Failure     400 {object} response.ErrorResponse
-// @Router      /articles [post]
-func (h *ArticleHandler) Create(w http.ResponseWriter, r *http.Request) { ... }
-```
-
----
-
-## Docker
-
-### Dockerfile
-
-Образ использует `golang:1.24-alpine` и запускает приложение через `go run`.  
-Подходит для разработки и учебных целей.
-
-```bash
-# Собрать образ
-make docker-build
-
-# Запустить контейнер с базой данных
-make docker-up
-```
-
-### docker-compose.yml
-
-Поднимает два сервиса: `app` и `postgres`.  
-Данные PostgreSQL сохраняются в volume `postgres_data`.
-
----
-
-## Как добавить новый домен
-> Домен это самостоятельная бизнес-сущность со своей логикой, репозиторием и хендлерами. Например: User, Comment, Order. Каждый домен живёт в своих пакетах по всем слоям архитектуры.
-
-Пошаговый пример добавления домена `User` (пользователи).
-
-### 1. Entity
-
-```go
-// internal/entity/user.go
-type User struct {
-    ID        uuid.UUID
-    Email     string
-    Name      string
-    CreatedAt time.Time
-}
-```
-
-### 2. DTO
-
-```go
-// internal/dto/user.go
-type CreateUserInput struct {
-    Email string `json:"email" validate:"required,email"`
-    Name  string `json:"name"  validate:"required,min=1"`
-}
-```
-
-### 3. Usecase интерфейс репозитория
-
-```go
-// internal/usecase/user/interfaces.go
-type Repository interface {
-    Create(ctx context.Context, input dto.CreateUserInput) (entity.User, error)
-    GetByEmail(ctx context.Context, email string) (entity.User, error)
-}
-```
-
-### 4. Usecase бизнес-логика
-
-```go
-// internal/usecase/user/usecase.go
-type UseCase struct {
-    repo Repository
-    log  *slog.Logger
-}
-
-func New(repo Repository, log *slog.Logger) *UseCase { ... }
-func (uc *UseCase) Create(ctx context.Context, input dto.CreateUserInput) (entity.User, error) { ... }
-```
-
-### 5. Публичный контракт
-
-```go
-// internal/usecase/contracts.go добавить интерфейс
-type UserUseCase interface {
-    Create(ctx context.Context, input dto.CreateUserInput) (entity.User, error)
-    GetByEmail(ctx context.Context, email string) (entity.User, error)
-}
-```
-
-### 6. Repository
-
-```go
-// internal/repository/user/mapper.go  DB-строки ↔ entity
-// internal/repository/user/queries.go squirrel builders
-// internal/repository/user/repo.go    реализация Repository
-```
-
-### 7. Controller
-
-```go
-// internal/controller/http/v1/user.go хендлеры
-// internal/controller/http/v1/request/user.go
-// internal/controller/http/v1/response/user.go
-```
-
-### 8. Зарегистрировать маршруты в router.go
-
-```go
-userHandler := newUserHandler(userUC, log)
-r.Route("/users", func(r chi.Router) {
-    r.Get("/", userHandler.List)
-    r.Post("/", userHandler.Create)
-})
-```
-
-### 9. Миграция
-
-```bash
-make migrate-create
-# > Migration name: create_users
-```
-
-### 10. Собрать зависимости в app.go
-
-```go
-userRepo := userrepo.New(db.Pool)
-userUC   := useruc.New(userRepo, log)
-router   := v1.NewRouter(wishlistUC, userUC, oauthProvider, log)
-```
-
----
-
-## Логирование
-
-Логгер основан на стандартном `log/slog` с JSON-форматом.  
-Каждая запись содержит поля `timestamp`, `severity`, `service`, `stage`, `source`.
-Поле `rest` обязательное. В него передаётся суть записи: что именно произошло. Не
-оставляй его пустым и не дублируй в него технические поля, они уже есть в структуре лога.
-
-```json
-{
-  "timestamp": "2026-03-14T12:00:00Z",
-  "severity": "INFO",
-  "source": {"function": "app.Run", "file": "app.go", "line": 42},
-  "rest": "starting HTTP server",
-  "stage": "local",
-  "service": "golang-boilerplate",
-  "addr": ":8080"
-}
-```
-
----
-
-## Тесты
-
-```bash
-# Запустить все тесты
-make test
-
-# Конкретный пакет
-go test ./internal/dto/...
-```
-
-В `internal/testhelpers` лежат утилиты для тестов:
-
-```go
-ctx := testhelpers.NewTestContext(t)
-testhelpers.AssertNoError(t, err)
-testhelpers.AssertError(t, err, definitions.ErrNotFound)
-```

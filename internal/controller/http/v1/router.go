@@ -8,6 +8,7 @@ import (
 	"github.com/KaoriEl/golang-boilerplate/internal/config"
 	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/middleware"
 	"github.com/KaoriEl/golang-boilerplate/internal/dto"
+	"github.com/KaoriEl/golang-boilerplate/internal/entity"
 	"github.com/KaoriEl/golang-boilerplate/internal/oauth"
 	"github.com/KaoriEl/golang-boilerplate/internal/types"
 	"github.com/KaoriEl/golang-boilerplate/internal/usecase"
@@ -18,7 +19,7 @@ import (
 )
 
 // NewRouter собирает chi-роутер с маршрутами API v1 и Swagger UI.
-func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshipUC FriendshipUseCase, provider oauth.Provider, providerName string, s3cfg config.S3Cfg, emailService EmailService, log *slog.Logger) http.Handler {
+func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshipUC FriendshipUseCase, roleRepo RoleRepository, provider oauth.Provider, providerName string, s3cfg config.S3Cfg, emailService EmailService, log *slog.Logger) http.Handler {
 	r := chi.NewRouter()
 
 	// Глобальные middleware
@@ -59,6 +60,8 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 		Region:          s3cfg.Region,
 	})
 	friendshipHandler := newFriendshipHandler(friendshipUC, emailService, log)
+	roleHandler := NewRoleController(roleRepo)
+	roleMiddleware := middleware.NewRoleMiddleware(roleRepo)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(middleware.JSONContentType)
@@ -114,6 +117,23 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 			r.Post("/requests/{id}/reject", friendshipHandler.RejectRequest)
 			r.Delete("/{friendId}", friendshipHandler.RemoveFriend)
 		})
+
+		// Роли и разрешения
+		r.Route("/roles", func(r chi.Router) {
+			r.Use(middleware.Auth(authUC, log))
+			r.Use(roleMiddleware.LoadUserRoles())
+			
+			// Получение информации о ролях (доступно всем авторизованным)
+			r.Get("/my", roleHandler.GetMyRoles)
+			r.Get("/user/{userId}", roleHandler.GetUserRoles)
+			
+			// Управление ролями (только для админов)
+			r.With(roleMiddleware.RequireAdmin()).Get("/", roleHandler.GetAllRoles)
+			r.With(roleMiddleware.RequireAdmin()).Post("/", roleHandler.CreateRole)
+			r.With(roleMiddleware.RequireAdmin()).Get("/{id}", roleHandler.GetRole)
+			r.With(roleMiddleware.RequireAdmin()).Post("/assign", roleHandler.AssignRole)
+			r.With(roleMiddleware.RequireAdmin()).Post("/remove", roleHandler.RemoveRole)
+		})
 	})
 
 	return r
@@ -134,4 +154,19 @@ type AuthUseCase interface {
 type EmailService interface {
 	SendFriendRequest(to string, data types.FriendRequestData) error
 	SendBirthdayReminder(to string, data types.BirthdayReminderData) error
+}
+
+// RoleRepository интерфейс для работы с ролями
+type RoleRepository interface {
+	GetAllRoles(ctx context.Context) ([]entity.Role, error)
+	GetRoleByID(ctx context.Context, id int) (*entity.Role, error)
+	GetRoleByName(ctx context.Context, name string) (*entity.Role, error)
+	CreateRole(ctx context.Context, role *entity.Role) error
+	UpdateRole(ctx context.Context, role *entity.Role) error
+	DeleteRole(ctx context.Context, id int) error
+	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]entity.Role, error)
+	GetUserWithRoles(ctx context.Context, userID uuid.UUID) (*entity.UserWithRoles, error)
+	AssignRoleToUser(ctx context.Context, userID uuid.UUID, roleID int, grantedBy *uuid.UUID) error
+	RemoveRoleFromUser(ctx context.Context, userID uuid.UUID, roleID int) error
+	GetUsersWithRole(ctx context.Context, roleName string) ([]entity.UserWithRoles, error)
 }
