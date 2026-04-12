@@ -21,6 +21,15 @@ import (
 // NewRouter собирает chi-роутер с маршрутами API v1 и Swagger UI.
 func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshipUC FriendshipUseCase, roleRepo RoleRepository, provider oauth.Provider, providerName string, s3cfg config.S3Cfg, emailService EmailService, log *slog.Logger) http.Handler {
 	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Info("🔍 REQUEST RECEIVED",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"full_url", r.URL.String())
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	// Глобальные middleware
 	r.Use(middleware.Recoverer)
@@ -60,31 +69,38 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 		Region:          s3cfg.Region,
 	})
 	friendshipHandler := newFriendshipHandler(friendshipUC, emailService, log)
-	roleHandler := NewRoleController(roleRepo)
+	roleHandler := NewRoleController(roleRepo, log)
 	roleMiddleware := middleware.NewRoleMiddleware(roleRepo)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(middleware.JSONContentType)
-		r.Route("/wishlists", func(r chi.Router) {
+		r.Route("/", func(r chi.Router) {
 			r.Get("/", wishlistHandler.ListWishlists)
 			r.With(middleware.Auth(authUC, log)).Post("/", wishlistHandler.CreateWishlist)
 
-			r.Route("/{id}", func(r chi.Router) {
-				r.Get("/", wishlistHandler.GetWishlist)
-				r.With(middleware.Auth(authUC, log)).Patch("/", wishlistHandler.UpdateWishlist)
-				r.With(middleware.Auth(authUC, log)).Delete("/", wishlistHandler.DeleteWishlist)
-			})
+			r.Route("/", func(r chi.Router) {
+				// Wishlist endpoints
+				r.Get("/wishlists", wishlistHandler.ListWishlists)
+				r.With(middleware.Auth(authUC, log)).Post("/wishlists", wishlistHandler.CreateWishlist)
 
-			r.Route("/{wishlist_id}/items", func(r chi.Router) {
-				r.With(middleware.OptionalAuth(authUC, log)).Get("/", wishlistHandler.ListItems)
-				r.With(middleware.Auth(authUC, log)).Post("/", wishlistHandler.CreateItem)
+				r.Route("/wishlists/{wishlist_id}", func(r chi.Router) {
+					r.Get("/", wishlistHandler.GetWishlist)
+					r.With(middleware.Auth(authUC, log)).Patch("/", wishlistHandler.UpdateWishlist)
+					r.With(middleware.Auth(authUC, log)).Delete("/", wishlistHandler.DeleteWishlist)
 
-				r.Route("/{id}", func(r chi.Router) {
-					r.With(middleware.OptionalAuth(authUC, log)).Get("/", wishlistHandler.GetItem)
-					r.With(middleware.Auth(authUC, log)).Patch("/", wishlistHandler.UpdateItem)
-					r.With(middleware.Auth(authUC, log)).Delete("/", wishlistHandler.DeleteItem)
-					r.With(middleware.Auth(authUC, log)).Post("/reserve", wishlistHandler.ReserveItem)
-					r.With(middleware.Auth(authUC, log)).Delete("/reserve", wishlistHandler.UnreserveItem)
+					// Item endpoints
+					r.Route("/items", func(r chi.Router) {
+						r.With(middleware.OptionalAuth(authUC, log)).Get("/", wishlistHandler.ListItems)
+						r.With(middleware.Auth(authUC, log)).Post("/", wishlistHandler.CreateItem)
+
+						r.Route("/{id}", func(r chi.Router) {
+							r.With(middleware.OptionalAuth(authUC, log)).Get("/", wishlistHandler.GetItem)
+							r.With(middleware.Auth(authUC, log)).Patch("/", wishlistHandler.UpdateItem)
+							r.With(middleware.Auth(authUC, log)).Delete("/", wishlistHandler.DeleteItem)
+							r.With(middleware.Auth(authUC, log)).Post("/reserve", wishlistHandler.ReserveItem)
+							r.With(middleware.Auth(authUC, log)).Delete("/reserve", wishlistHandler.UnreserveItem)
+						})
+					})
 				})
 			})
 		})
@@ -122,11 +138,11 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 		r.Route("/roles", func(r chi.Router) {
 			r.Use(middleware.Auth(authUC, log))
 			r.Use(roleMiddleware.LoadUserRoles())
-			
+
 			// Получение информации о ролях (доступно всем авторизованным)
 			r.Get("/my", roleHandler.GetMyRoles)
 			r.Get("/user/{userId}", roleHandler.GetUserRoles)
-			
+
 			// Управление ролями (только для админов)
 			r.With(roleMiddleware.RequireAdmin()).Get("/", roleHandler.GetAllRoles)
 			r.With(roleMiddleware.RequireAdmin()).Post("/", roleHandler.CreateRole)
@@ -138,7 +154,6 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 
 	return r
 }
-
 
 // AuthUseCase интерфейс для use case аутентификации
 type AuthUseCase interface {

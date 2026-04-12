@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -16,12 +17,14 @@ import (
 // RoleController контроллер для управления ролями
 type RoleController struct {
 	roleRepo role.Repository
+	log      *slog.Logger
 }
 
 // NewRoleController создает новый контроллер ролей
-func NewRoleController(roleRepo role.Repository) *RoleController {
+func NewRoleController(roleRepo role.Repository, log *slog.Logger) *RoleController {
 	return &RoleController{
 		roleRepo: roleRepo,
+		log:      log,
 	}
 }
 
@@ -58,11 +61,16 @@ type UserRoleResponse struct {
 
 // GetAllRoles получает все роли (только для админов)
 func (c *RoleController) GetAllRoles(w http.ResponseWriter, r *http.Request) {
+	c.log.Info("🔥 GetAllRoles: START", "path", r.URL.Path)
+
 	roles, err := c.roleRepo.GetAllRoles(r.Context())
 	if err != nil {
+		c.log.Error("🔥 GetAllRoles: GetAlLRoles error", "error", err)
 		http.Error(w, "Failed to get roles", http.StatusInternalServerError)
 		return
 	}
+
+	c.log.Info("🔥 GetAllRoles: got roles from DB", "count", len(roles))
 
 	response := make([]RoleResponse, len(roles))
 	for i, role := range roles {
@@ -75,6 +83,8 @@ func (c *RoleController) GetAllRoles(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:   role.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		}
 	}
+
+	c.log.Info("🔥 GetAllRoles: success, sending response")
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -234,7 +244,8 @@ func (c *RoleController) GetUserRoles(w http.ResponseWriter, r *http.Request) {
 func (c *RoleController) GetMyRoles(w http.ResponseWriter, r *http.Request) {
 	userWithRoles := middleware.GetUserWithRoles(r)
 	if userWithRoles == nil {
-		http.Error(w, "User roles not loaded", http.StatusInternalServerError)
+		// Ошибка на стороне клиента: его данные не загружены
+		http.Error(w, "User roles not found. Make sure you are authenticated and the LoadUserRoles middleware is applied.", http.StatusForbidden)
 		return
 	}
 

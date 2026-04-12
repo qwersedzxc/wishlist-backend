@@ -1,13 +1,11 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: wishlist_postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 4321
-      POSTGRES_DB: wishlist
+      POSTGRES_PASSWORD: ${DB_PASSWORD} 
+      POSTGRES_DB: wishlist 
     ports:
       - "5432:5432"
     volumes:
@@ -37,17 +35,6 @@ services:
     networks:
       - wishlist_network
 
-  frontend:
-    build:
-      context: ../wishlist-frontend-master
-      dockerfile: Dockerfile
-    container_name: wishlist_frontend
-    ports:
-      - "3000:80"
-    restart: unless-stopped
-    networks:
-      - wishlist_network
-
   nginx:
     image: nginx:alpine
     container_name: wishlist_nginx
@@ -57,7 +44,6 @@ services:
       - ./nginx-production.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - backend
-      - frontend
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -71,4 +57,3 @@ networks:
   wishlist_network:
     driver: bridge
     name: wishlist_network
-

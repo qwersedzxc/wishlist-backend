@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	
+
 	"github.com/KaoriEl/golang-boilerplate/internal/helpers"
 )
 
@@ -22,7 +22,7 @@ func Auth(authUC AuthUseCase, log *slog.Logger) func(http.Handler) http.Handler 
 			// Извлекаем токен из заголовка Authorization
 			authHeader := r.Header.Get("Authorization")
 			log.Info("Auth middleware", "path", r.URL.Path, "authHeader", authHeader)
-			
+
 			if authHeader == "" {
 				log.Warn("missing authorization header", "path", r.URL.Path)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)

@@ -315,26 +315,42 @@ func (h *WishlistHandler) DeleteWishlist(w http.ResponseWriter, r *http.Request)
 // @Failure     400 {object} response.ErrorResponse
 // @Router      /wishlists/{wishlist_id}/items [post]
 func (h *WishlistHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
+	h.log.Info("🚀 CreateItem: START", "method", r.Method, "url", r.URL.String())
+
 	wishlistIDStr := chi.URLParam(r, "wishlist_id")
+	h.log.Info("🚀 CreateItem: wishlistID from URL", "wishlistID", wishlistIDStr)
+
 	wishlistID, err := uuid.Parse(wishlistIDStr)
 	if err != nil {
+		h.log.Error("🚀 CreateItem: invalid UUID", "error", err, "wishlistIDStr", wishlistIDStr)
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, response.NewErrorResponse(errors.New("invalid wishlist ID")))
 		return
 	}
+	h.log.Info("🚀 CreateItem: UUID parsed successfully", "wishlistID", wishlistID)
 
 	var req request.CreateWishlistItemRequest
+	h.log.Info("🚀 CreateItem: decoding request body")
+
 	if err := render.DecodeJSON(r.Body, &req); err != nil {
+		h.log.Error("🚀 CreateItem: decode error", "error", err)
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, response.NewErrorResponse(err))
 		return
 	}
+	h.log.Info("🚀 CreateItem: request decoded",
+		"title", req.Title,
+		"description", req.Description,
+		"price", req.Price,
+		"url", req.URL)
 
 	if err := helpers.Validate(req); err != nil {
+		h.log.Error("🚀 CreateItem: validation error", "error", err)
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, response.NewErrorResponse(err))
 		return
 	}
+	h.log.Info("🚀 CreateItem: validation passed")
 
 	input := dto.CreateWishlistItemInput{
 		WishlistID:  wishlistID,
@@ -346,9 +362,11 @@ func (h *WishlistHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 		Priority:    req.Priority,
 		Category:    req.Category,
 	}
+	h.log.Info("🚀 CreateItem: calling use case")
 
 	item, err := h.uc.CreateItem(r.Context(), input)
 	if err != nil {
+		h.log.Error("🚀 CreateItem: use case error", "error", err)
 		if errors.Is(err, definitions.ErrNotFound) {
 			render.Status(r, http.StatusNotFound)
 		} else {
@@ -357,10 +375,12 @@ func (h *WishlistHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, response.NewErrorResponse(err))
 		return
 	}
+	h.log.Info("🚀 CreateItem: item created", "itemID", item.ID)
 
 	// Получаем информацию о вишлисте для проверки владельца
 	wishlist, err := h.uc.GetWishlist(r.Context(), wishlistID)
 	if err != nil {
+		h.log.Error("🚀 CreateItem: failed to get wishlist", "error", err)
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, response.NewErrorResponse(err))
 		return
@@ -368,6 +388,7 @@ func (h *WishlistHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 
 	currentUserID := helpers.GetUserIDFromCtxOptional(r.Context())
 	isOwner := currentUserID != nil && *currentUserID == wishlist.UserID
+	h.log.Info("🚀 CreateItem: success", "isOwner", isOwner)
 
 	render.Status(r, http.StatusCreated)
 	render.JSON(w, r, response.NewWishlistItemResponse(item, currentUserID, isOwner))
@@ -638,4 +659,3 @@ func (h *WishlistHandler) UnreserveItem(w http.ResponseWriter, r *http.Request) 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, map[string]string{"message": "item unreserved"})
 }
-

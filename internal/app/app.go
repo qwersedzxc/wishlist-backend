@@ -81,7 +81,7 @@ func Run(ctx context.Context, cfg *config.Config, db *database.Database, log *sl
 	wishlistUC := wishlistuc.New(wishlistRepo, wishlistItemRepo, log)
 
 	// Инициализация role компонентов
-	roleRepo := rolerepo.New(db.Pool)
+	roleRepo := rolerepo.New(db.Pool, log)
 
 	// Инициализация auth компонентов
 	userRepo := userrepo.New(db.Pool)

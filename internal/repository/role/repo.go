@@ -2,7 +2,10 @@ package role
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -32,15 +35,17 @@ type Repository interface {
 
 // repository реализация Repository
 type repository struct {
-	db *pgxpool.Pool
-	qb squirrel.StatementBuilderType
+	db  *pgxpool.Pool
+	qb  squirrel.StatementBuilderType
+	log *slog.Logger
 }
 
 // New создает новый экземпляр репозитория ролей
-func New(db *pgxpool.Pool) Repository {
+func New(db *pgxpool.Pool, log *slog.Logger) Repository {
 	return &repository{
-		db: db,
-		qb: squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar),
+		db:  db,
+		qb:  squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar),
+		log: log,
 	}
 }
 
@@ -60,8 +65,13 @@ func (r *repository) GetAllRoles(ctx context.Context) ([]entity.Role, error) {
 	var roles []entity.Role
 	for rows.Next() {
 		var role entity.Role
-		err := rows.Scan(&role.ID, &role.Name, &role.Description, &role.Permissions, &role.CreatedAt, &role.UpdatedAt)
+		var permissionsJSON []byte
+
+		err := rows.Scan(&role.ID, &role.Name, &role.Description, &permissionsJSON, &role.CreatedAt, &role.UpdatedAt)
 		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
 			return nil, err
 		}
 		roles = append(roles, role)
@@ -78,11 +88,26 @@ func (r *repository) GetRoleByID(ctx context.Context, id int) (*entity.Role, err
 		WHERE id = $1`
 
 	var role entity.Role
-	err := r.db.QueryRow(ctx, query, id).Scan(&role.ID, &role.Name, &role.Description, &role.Permissions, &role.CreatedAt, &role.UpdatedAt)
+	var permissionsJSON []byte
+
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&role.ID,
+		&role.Name,
+		&role.Description,
+		&permissionsJSON,
+		&role.CreatedAt,
+		&role.UpdatedAt,
+	)
+
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
+		r.log.Error("GetRoleByID scan failed", "error", err)
+		return nil, err
+	}
+	if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
+		r.log.Error("Failed to unmarshal permissions", "error", err, "raw", string(permissionsJSON))
 		return nil, err
 	}
 	return &role, nil
@@ -147,12 +172,12 @@ func (r *repository) DeleteRole(ctx context.Context, id int) error {
 // GetUserRoles получает роли пользователя
 func (r *repository) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]entity.Role, error) {
 	query := `
-		SELECT r.id, r.name, r.description, r.permissions, r.created_at, r.updated_at
-		FROM roles r
-		INNER JOIN user_roles ur ON r.id = ur.role_id
-		WHERE ur.user_id = $1 AND ur.is_active = true
-		AND (ur.expires_at IS NULL OR ur.expires_at > now())
-		ORDER BY r.name`
+        SELECT r.id, r.name, r.description, r.permissions, r.created_at, r.updated_at
+        FROM roles r
+        INNER JOIN user_roles ur ON r.id = ur.role_id
+        WHERE ur.user_id = $1 AND ur.is_active = true
+        AND (ur.expires_at IS NULL OR ur.expires_at > now())
+        ORDER BY r.name`
 
 	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
@@ -163,10 +188,37 @@ func (r *repository) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]enti
 	var roles []entity.Role
 	for rows.Next() {
 		var role entity.Role
-		err := rows.Scan(&role.ID, &role.Name, &role.Description, &role.Permissions, &role.CreatedAt, &role.UpdatedAt)
+		var id int
+		var name string
+		var description *string
+		var permissionsJSON []byte           // ← сканируем как []byte
+		var createdAt, updatedAt interface{} // временно
+
+		err := rows.Scan(&id, &name, &description, &permissionsJSON, &createdAt, &updatedAt)
 		if err != nil {
+			r.log.Error("Scan failed", "error", err, "userID", userID)
 			return nil, err
 		}
+
+		// Заполняем роль
+		role.ID = id
+		role.Name = name
+		role.Description = description
+
+		// Парсим JSON
+		if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
+			r.log.Error("JSON unmarshal failed", "error", err, "raw", string(permissionsJSON))
+			return nil, err
+		}
+
+		// Конвертируем время
+		if t, ok := createdAt.(time.Time); ok {
+			role.CreatedAt = t
+		}
+		if t, ok := updatedAt.(time.Time); ok {
+			role.UpdatedAt = t
+		}
+
 		roles = append(roles, role)
 	}
 
@@ -175,30 +227,39 @@ func (r *repository) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]enti
 
 // GetUserWithRoles получает пользователя с его ролями
 func (r *repository) GetUserWithRoles(ctx context.Context, userID uuid.UUID) (*entity.UserWithRoles, error) {
-	// Получаем пользователя
+	// Добавьте лог
+	r.log.Info("GetUserWithRoles called", "userID", userID)
+
 	userQuery := `
-		SELECT id, email, username, password_hash, provider, provider_id, 
-		       avatar_url, created_at, updated_at
-		FROM users
-		WHERE id = $1`
+        SELECT id, email, username, password_hash, provider, provider_id, 
+               avatar_url, created_at, updated_at
+        FROM users
+        WHERE id = $1`
 
 	var user entity.User
 	err := r.db.QueryRow(ctx, userQuery, userID).Scan(
 		&user.ID, &user.Email, &user.Username, &user.PasswordHash,
 		&user.Provider, &user.ProviderID, &user.AvatarURL,
 		&user.CreatedAt, &user.UpdatedAt)
+
 	if err != nil {
+		r.log.Error("QueryRow failed", "error", err)
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
 
+	r.log.Info("User found", "userID", user.ID, "email", user.Email)
+
 	// Получаем роли пользователя
 	roles, err := r.GetUserRoles(ctx, userID)
 	if err != nil {
+		r.log.Error("GetUserRoles failed", "error", err)
 		return nil, err
 	}
+
+	r.log.Info("Roles found", "count", len(roles))
 
 	return &entity.UserWithRoles{
 		User:  user,
