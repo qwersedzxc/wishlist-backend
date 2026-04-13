@@ -12,12 +12,12 @@ import (
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1/request"
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1/response"
-	"github.com/KaoriEl/golang-boilerplate/internal/definitions"
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/helpers"
-	"github.com/KaoriEl/golang-boilerplate/internal/usecase"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1/request"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1/response"
+	"github.com/qwersedzxc/wishlist-backend/internal/definitions"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/helpers"
+	"github.com/qwersedzxc/wishlist-backend/internal/usecase"
 )
 
 type WishlistHandler struct {

@@ -27,7 +27,7 @@ type Wishlist struct {
 	AuthorBio       *string
 	AuthorCity      *string
 	AuthorPhone     *string
-	AuthorBirthDate *string
+	AuthorBirthDate *time.Time
 }
 
 // WishlistItem представляет элемент в списке желаний

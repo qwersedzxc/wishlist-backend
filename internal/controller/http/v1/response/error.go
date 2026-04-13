@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/definitions"
+	"github.com/qwersedzxc/wishlist-backend/internal/definitions"
 	"github.com/go-chi/render"
 )
 

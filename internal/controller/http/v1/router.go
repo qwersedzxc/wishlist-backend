@@ -5,21 +5,32 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/middleware"
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
-	"github.com/KaoriEl/golang-boilerplate/internal/oauth"
-	"github.com/KaoriEl/golang-boilerplate/internal/types"
-	"github.com/KaoriEl/golang-boilerplate/internal/usecase"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/middleware"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/oauth"
+	"github.com/qwersedzxc/wishlist-backend/internal/types"
+	"github.com/qwersedzxc/wishlist-backend/internal/usecase"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 // NewRouter собирает chi-роутер с маршрутами API v1 и Swagger UI.
-func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshipUC FriendshipUseCase, roleRepo RoleRepository, provider oauth.Provider, providerName string, s3cfg config.S3Cfg, emailService EmailService, log *slog.Logger) http.Handler {
+func NewRouter(
+	wishlistUC usecase.WishlistUseCase,
+	authUC AuthUseCase,
+	friendshipUC FriendshipUseCase,
+	roleRepo RoleRepository,
+	provider oauth.Provider,
+	providerName string,
+	s3cfg config.S3Cfg,
+	emailService EmailService,
+	log *slog.Logger,
+	cfg *config.Config,
+) http.Handler {
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -40,9 +51,10 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 	// CORS для работы с frontend
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
@@ -58,8 +70,10 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 		httpSwagger.URL("/swagger/doc.json"),
 	))
 
+	frontendURL := cfg.FrontendURL
+
 	wishlistHandler := newWishlistHandler(wishlistUC, log)
-	authHandler := newAuthHandler(provider, providerName, authUC, log)
+	authHandler := newAuthHandler(provider, providerName, authUC, log, frontendURL)
 	uploadHandler := newUploadHandler(log, S3Config{
 		Endpoint:        s3cfg.Endpoint,
 		AccessKeyID:     s3cfg.AccessKeyID,

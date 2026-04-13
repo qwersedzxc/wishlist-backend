@@ -10,11 +10,11 @@ import (
 	"github.com/go-chi/render"
 	"golang.org/x/oauth2"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1/request"
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1/response"
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/helpers"
-	"github.com/KaoriEl/golang-boilerplate/internal/oauth"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1/request"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1/response"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/helpers"
+	"github.com/qwersedzxc/wishlist-backend/internal/oauth"
 )
 
 // AuthHandler обрабатывает HTTP-запросы авторизации.
@@ -24,15 +24,17 @@ type AuthHandler struct {
 	stateStore   *oauth.StateStore
 	authUC       AuthUseCase
 	log          *slog.Logger
+	frontendURL  string
 }
 
-func newAuthHandler(provider oauth.Provider, providerName string, authUC AuthUseCase, log *slog.Logger) *AuthHandler {
+func newAuthHandler(provider oauth.Provider, providerName string, authUC AuthUseCase, log *slog.Logger, frontendURL string) *AuthHandler {
 	return &AuthHandler{
 		provider:     provider,
 		providerName: providerName,
 		stateStore:   oauth.NewStateStore(),
 		authUC:       authUC,
 		log:          log,
+		frontendURL:  frontendURL,
 	}
 }
 
@@ -101,12 +103,25 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	h.log.Info("User authenticated successfully", "user_id", authResp.User.ID)
 
-	// Редиректим на фронтенд с токеном
-	redirectURL := "http://localhost:3000?token=" + authResp.Token
-	h.log.Info("Redirecting to frontend", "url", redirectURL)
-	http.Redirect(w, r, redirectURL, http.StatusFound)
+	// Редиректим на фронтенд без токена
+	h.setTokenCookie(w, authResp.Token)
+
+	h.log.Info("Redirecting to frontend", "url", h.frontendURL)
+	http.Redirect(w, r, h.frontendURL, http.StatusFound)
 }
 
+func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, token string) {
+	cookie := &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,                 // Запрещаем доступ из JavaScript
+		SameSite: http.SameSiteLaxMode, // Защита от CSRF
+		MaxAge:   7 * 24 * 60 * 60,     // 7 дней
+	}
+	http.SetCookie(w, cookie)
+	h.log.Debug("Token cookie set")
+}
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req request.UserRegisterRequest

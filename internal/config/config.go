@@ -58,6 +58,7 @@ type Config struct {
 	OAuth              OAuthCfg
 	S3                 S3Cfg
 	SMTP               MultiSMTPCfg
+	FrontendURL        string
 }
 
 // readValueFromFileOrEnv сначала пытается прочитать секрет из файла,
@@ -127,6 +128,10 @@ func MustLoad() *Config {
 	if jwtSecret == "" {
 		jwtSecret = "default-jwt-secret-for-development"
 	}
+	frontendURL := readValueFromFileOrEnv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
 
 	return &Config{
 		AppURL:             appURL,
@@ -172,5 +177,6 @@ func MustLoad() *Config {
 				From:     readValueFromFileOrEnv("SMTP_FROM_3"),
 			},
 		},
+		FrontendURL: frontendURL,
 	}
 }

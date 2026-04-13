@@ -4,7 +4,7 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
 )
 
 const (

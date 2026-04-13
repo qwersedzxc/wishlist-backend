@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
-	"github.com/KaoriEl/golang-boilerplate/internal/helpers"
-	"github.com/KaoriEl/golang-boilerplate/internal/repository/role"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/helpers"
+	"github.com/qwersedzxc/wishlist-backend/internal/repository/role"
 )
 
 // RoleMiddleware middleware для проверки ролей и разрешений

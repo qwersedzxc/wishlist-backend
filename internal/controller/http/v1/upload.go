@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -25,6 +26,7 @@ type UploadHandler struct {
 	s3Client *s3.Client
 	bucket   string
 	baseURL  string
+	enabled  bool
 }
 
 // S3Config конфигурация S3-совместимого хранилища
@@ -37,7 +39,52 @@ type S3Config struct {
 	Region          string
 }
 
+// Проверка реального типа файла (читаем первые 512 байт)
+func validateImageContent(file io.Reader) (string, error) {
+	// Читаем первые 512 байт для определения типа
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+
+	// Определяем MIME тип по содержимому
+	contentType := http.DetectContentType(buffer[:n])
+
+	// Разрешенные типы
+	allowedTypes := []string{
+		"image/jpeg",
+		"image/jpg",
+		"image/png",
+		"image/webp",
+	}
+
+	for _, allowed := range allowedTypes {
+		if contentType == allowed {
+			return contentType, nil
+		}
+	}
+
+	return "", fmt.Errorf("invalid file type: %s", contentType)
+}
+
+func (c *S3Config) IsEmpty() bool {
+	return c.Endpoint == "" || c.AccessKeyID == "" || c.SecretAccessKey == "" || c.Bucket == ""
+}
+
 func newUploadHandler(log *slog.Logger, cfg S3Config) *UploadHandler {
+	if cfg.IsEmpty() {
+		log.Warn("S3 config is empty or incomplete, upload handler will be disabled",
+			"endpoint", cfg.Endpoint != "",
+			"access_key", cfg.AccessKeyID != "",
+			"secret_key", cfg.SecretAccessKey != "",
+			"bucket", cfg.Bucket != "",
+		)
+		return &UploadHandler{
+			log:     log,
+			enabled: false,
+		}
+	}
 	// Создаем кастомный resolver для Yandex Cloud
 	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 		if service == s3.ServiceID {
@@ -61,6 +108,10 @@ func newUploadHandler(log *slog.Logger, cfg S3Config) *UploadHandler {
 	)
 	if err != nil {
 		log.Error("failed to load AWS config", "error", err)
+		return &UploadHandler{
+			log:     log,
+			enabled: false,
+		}
 	}
 
 	s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
@@ -77,6 +128,7 @@ func newUploadHandler(log *slog.Logger, cfg S3Config) *UploadHandler {
 		s3Client: s3Client,
 		bucket:   cfg.Bucket,
 		baseURL:  cfg.BaseURL,
+		enabled:  true,
 	}
 }
 
@@ -88,6 +140,13 @@ type UploadResponse struct {
 }
 
 func (h *UploadHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
+	if !h.enabled {
+		h.log.Error("S3 upload handler is disabled")
+		render.Status(r, http.StatusServiceUnavailable)
+		render.JSON(w, r, map[string]string{"error": "upload service is not available"})
+		return
+	}
+
 	h.log.Info("upload image request received")
 	r.Body = http.MaxBytesReader(w, r.Body, maxFileSize)
 
@@ -109,11 +168,11 @@ func (h *UploadHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 
 	h.log.Info("file received", "filename", header.Filename, "size", header.Size, "content_type", header.Header.Get("Content-Type"))
 
-	contentType := header.Header.Get("Content-Type")
-	if !isValidImageType(contentType) {
-		h.log.Error("invalid file type", "content_type", contentType)
+	contentType, err := validateImageContent(file)
+	if err != nil {
+		h.log.Error("file validation failed", "error", err)
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, map[string]string{"error": "invalid file type. Only JPEG, PNG, WebP allowed"})
+		render.JSON(w, r, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -121,6 +180,14 @@ func (h *UploadHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	filename := fmt.Sprintf("%s_%d%s", uuid.New().String(), time.Now().Unix(), ext)
 
 	h.log.Info("uploading to S3", "bucket", h.bucket, "key", filename)
+
+	// Дополнительная проверка, что s3Client не nil, иначе паника
+	if h.s3Client == nil {
+		h.log.Error("S3 client is nil")
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, map[string]string{"error": "upload service not properly initialized"})
+		return
+	}
 
 	_, err = h.s3Client.PutObject(context.Background(), &s3.PutObjectInput{
 		Bucket:      aws.String(h.bucket),
@@ -147,15 +214,6 @@ func (h *UploadHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 		Filename: filename,
 		Size:     header.Size,
 	})
-}
-
-func isValidImageType(contentType string) bool {
-	for _, t := range []string{"image/jpeg", "image/jpg", "image/png", "image/webp"} {
-		if contentType == t {
-			return true
-		}
-	}
-	return false
 }
 
 func getFileExtension(filename string) string {

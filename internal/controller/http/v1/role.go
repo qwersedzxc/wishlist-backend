@@ -9,9 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/middleware"
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
-	"github.com/KaoriEl/golang-boilerplate/internal/repository/role"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/middleware"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/repository/role"
 )
 
 // RoleController контроллер для управления ролями

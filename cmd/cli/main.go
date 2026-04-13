@@ -6,10 +6,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/cli"
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
-	"github.com/KaoriEl/golang-boilerplate/internal/database"
-	"github.com/KaoriEl/golang-boilerplate/internal/logger"
+	"github.com/qwersedzxc/wishlist-backend/internal/cli"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
+	"github.com/qwersedzxc/wishlist-backend/internal/database"
+	"github.com/qwersedzxc/wishlist-backend/internal/logger"
 )
 
 func main() {

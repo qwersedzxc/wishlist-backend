@@ -9,22 +9,24 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
-	v1 "github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1"
-	"github.com/KaoriEl/golang-boilerplate/internal/database"
-	"github.com/KaoriEl/golang-boilerplate/internal/email"
-	"github.com/KaoriEl/golang-boilerplate/internal/oauth"
-	friendshiprepo "github.com/KaoriEl/golang-boilerplate/internal/repository/friendship"
-	rolerepo "github.com/KaoriEl/golang-boilerplate/internal/repository/role"
-	userrepo "github.com/KaoriEl/golang-boilerplate/internal/repository/user"
-	wishlistrepo "github.com/KaoriEl/golang-boilerplate/internal/repository/wishlist"
-	"github.com/KaoriEl/golang-boilerplate/internal/scheduler"
-	authuc "github.com/KaoriEl/golang-boilerplate/internal/usecase/auth"
-	friendshipuc "github.com/KaoriEl/golang-boilerplate/internal/usecase/friendship"
-	wishlistuc "github.com/KaoriEl/golang-boilerplate/internal/usecase/wishlist"
 	_ "github.com/jackc/pgx/v5/stdlib" //nolint:revive,nolintlint
 	"github.com/pressly/goose/v3"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
+	v1 "github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1"
+	"github.com/qwersedzxc/wishlist-backend/internal/database"
+	"github.com/qwersedzxc/wishlist-backend/internal/email"
+	"github.com/qwersedzxc/wishlist-backend/internal/oauth"
+	friendshiprepo "github.com/qwersedzxc/wishlist-backend/internal/repository/friendship"
+	rolerepo "github.com/qwersedzxc/wishlist-backend/internal/repository/role"
+	userrepo "github.com/qwersedzxc/wishlist-backend/internal/repository/user"
+	wishlistrepo "github.com/qwersedzxc/wishlist-backend/internal/repository/wishlist"
+	"github.com/qwersedzxc/wishlist-backend/internal/scheduler"
+	authuc "github.com/qwersedzxc/wishlist-backend/internal/usecase/auth"
+	friendshipuc "github.com/qwersedzxc/wishlist-backend/internal/usecase/friendship"
+	wishlistuc "github.com/qwersedzxc/wishlist-backend/internal/usecase/wishlist"
 )
+
+const jwtExpiry = 7 * 24 * time.Hour
 
 // runMigrations применяет все pending миграции из директории migrationsDir.
 func runMigrations(dsn, migrationsDir string, log *slog.Logger) error {
@@ -85,7 +87,7 @@ func Run(ctx context.Context, cfg *config.Config, db *database.Database, log *sl
 
 	// Инициализация auth компонентов
 	userRepo := userrepo.New(db.Pool)
-	authUC := authuc.New(userRepo, roleRepo, cfg.JWTSecret, log)
+	authUC := authuc.New(userRepo, roleRepo, cfg.JWTSecret, jwtExpiry, log)
 
 	// Инициализация friendship компонентов
 	friendshipRepo := friendshiprepo.New(db.Pool)
@@ -101,7 +103,7 @@ func Run(ctx context.Context, cfg *config.Config, db *database.Database, log *sl
 		return err
 	}
 
-	router := v1.NewRouter(wishlistUC, authUC, friendshipUC, roleRepo, oauthProvider, cfg.OAuth.Provider, cfg.S3, emailService, log)
+	router := v1.NewRouter(wishlistUC, authUC, friendshipUC, roleRepo, oauthProvider, cfg.OAuth.Provider, cfg.S3, emailService, log, cfg)
 
 	// Запускаем планировщик дней рождения
 	birthdayScheduler := scheduler.New(friendshipUC, emailService, log)

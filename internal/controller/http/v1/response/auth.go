@@ -1,7 +1,7 @@
 package response
 
 import (
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
 	"github.com/google/uuid"
 )
 
