@@ -13,7 +13,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d wishlist"]
       interval: 10s
-      timeout: 5s
+      timeout: 5s             
       retries: 5
     restart: unless-stopped
     networks:

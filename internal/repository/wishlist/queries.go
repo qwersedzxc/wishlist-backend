@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	wishlistsTable      = "wishlists"
-	wishlistItemsTable  = "wishlist_items"
+	wishlistsTable     = "wishlists"
+	wishlistItemsTable = "wishlist_items"
 )
 
 var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
@@ -31,7 +31,7 @@ func buildSelectWishlistByID(id uuid.UUID) sq.SelectBuilder {
 			"w.image_url", "w.is_public", "w.privacy_level", "w.share_token", "w.created_at", "w.updated_at",
 			"u.username AS author_username", "u.full_name AS author_full_name", "u.avatar_url AS author_avatar_url",
 			"u.bio AS author_bio", "u.city AS author_city", "u.phone AS author_phone",
-			"CAST(u.birth_date AS text) AS author_birth_date",
+			"u.birth_date AS author_birth_date",
 		).
 		From(wishlistsTable + " w").
 		LeftJoin("users u ON u.id = w.user_id").
@@ -46,7 +46,7 @@ func buildSelectWishlists(filter dto.WishlistFilter) sq.SelectBuilder {
 			"w.image_url", "w.is_public", "w.privacy_level", "w.share_token", "w.created_at", "w.updated_at",
 			"u.username AS author_username", "u.full_name AS author_full_name", "u.avatar_url AS author_avatar_url",
 			"u.bio AS author_bio", "u.city AS author_city", "u.phone AS author_phone",
-			"CAST(u.birth_date AS text) AS author_birth_date",
+			"u.birth_date AS author_birth_date",
 		).
 		From(wishlistsTable + " w").
 		LeftJoin("users u ON u.id = w.user_id")
