@@ -219,3 +219,25 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		"user": u,
 	})
 }
+
+// Logout удаляет cookie с токеном и завершает сессию
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	h.log.Info("Logout request received")
+	
+	// Удаляем cookie с токеном
+	cookie := &http.Cookie{
+		Name:     "token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1, // Удаляем cookie
+	}
+	http.SetCookie(w, cookie)
+	
+	h.log.Info("Token cookie deleted, user logged out")
+	
+	render.JSON(w, r, map[string]string{
+		"message": "logged out successfully",
+	})
+}

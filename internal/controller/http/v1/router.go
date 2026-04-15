@@ -122,6 +122,7 @@ func NewRouter(
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)
 			r.Post("/login", authHandler.LoginEmail)
+			r.Post("/logout", authHandler.Logout)
 			r.With(middleware.Auth(authUC, log)).Get("/me", authHandler.Me)
 			r.With(middleware.Auth(authUC, log)).Patch("/profile", authHandler.UpdateProfile)
 			r.Get("/oauth/login", authHandler.Login)
@@ -132,6 +133,9 @@ func NewRouter(
 			r.Use(middleware.Auth(authUC, log))
 			r.Post("/image", uploadHandler.UploadImage)
 		})
+		
+		// Проксирование изображений (публичный доступ для обхода CORS)
+		r.Get("/proxy/image", uploadHandler.ProxyImage)
 
 		// Поиск пользователей (публичный)
 		r.Get("/users/search", friendshipHandler.SearchUsers)

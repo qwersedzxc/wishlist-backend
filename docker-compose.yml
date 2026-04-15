@@ -41,7 +41,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx-production.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-dev.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - backend
     extra_hosts:

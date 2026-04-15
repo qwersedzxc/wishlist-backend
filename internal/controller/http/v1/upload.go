@@ -40,7 +40,7 @@ type S3Config struct {
 }
 
 // Проверка реального типа файла (читаем первые 512 байт)
-func validateImageContent(file io.Reader) (string, error) {
+func validateImageContent(file io.ReadSeeker) (string, error) {
 	// Читаем первые 512 байт для определения типа
 	buffer := make([]byte, 512)
 	n, err := file.Read(buffer)
@@ -57,15 +57,21 @@ func validateImageContent(file io.Reader) (string, error) {
 		"image/jpg",
 		"image/png",
 		"image/webp",
+		"image/gif",
 	}
 
 	for _, allowed := range allowedTypes {
 		if contentType == allowed {
+			// Перематываем файл обратно в начало
+			_, err := file.Seek(0, io.SeekStart)
+			if err != nil {
+				return "", fmt.Errorf("failed to seek file: %w", err)
+			}
 			return contentType, nil
 		}
 	}
 
-	return "", fmt.Errorf("invalid file type: %s", contentType)
+	return "", fmt.Errorf("invalid file type: %s (allowed: jpeg, png, webp, gif)", contentType)
 }
 
 func (c *S3Config) IsEmpty() bool {
@@ -222,4 +228,78 @@ func getFileExtension(filename string) string {
 		return ".jpg"
 	}
 	return strings.ToLower(ext)
+}
+
+// ProxyImage проксирует изображение из S3 для обхода CORS
+func (h *UploadHandler) ProxyImage(w http.ResponseWriter, r *http.Request) {
+	if !h.enabled {
+		http.Error(w, "upload service is not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Получаем путь к файлу из URL
+	imagePath := r.URL.Query().Get("path")
+	if imagePath == "" {
+		http.Error(w, "missing path parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Извлекаем bucket и key из пути
+	// Формат: wishlist-images/filename.jpg
+	parts := strings.SplitN(imagePath, "/", 2)
+	if len(parts) != 2 {
+		h.log.Error("invalid image path format", "path", imagePath)
+		http.Error(w, "invalid path format", http.StatusBadRequest)
+		return
+	}
+	
+	bucket := parts[0]
+	key := parts[1]
+	
+	h.log.Info("proxying image from S3", "bucket", bucket, "key", key)
+
+	// Загружаем изображение из S3 используя SDK
+	result, err := h.s3Client.GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		h.log.Error("failed to get object from S3", "error", err, "bucket", bucket, "key", key)
+		http.Error(w, "failed to fetch image", http.StatusInternalServerError)
+		return
+	}
+	defer result.Body.Close()
+
+	// Читаем все данные в память сразу
+	imageData, err := io.ReadAll(result.Body)
+	if err != nil {
+		h.log.Error("failed to read image data", "error", err)
+		http.Error(w, "failed to read image", http.StatusInternalServerError)
+		return
+	}
+
+	// Устанавливаем заголовки
+	contentType := "image/jpeg" // fallback
+	if result.ContentType != nil {
+		contentType = *result.ContentType
+		h.log.Info("S3 returned content type", "content_type", contentType)
+	} else {
+		h.log.Warn("S3 did not return content type, using fallback", "fallback", contentType)
+	}
+	
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(imageData)))
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	
+	// Отправляем все данные одним куском
+	written, err := w.Write(imageData)
+	if err != nil {
+		h.log.Error("failed to write image data", "error", err)
+		return
+	}
+	
+	h.log.Info("image proxied successfully", "bytes", written, "content_type", contentType)
 }
