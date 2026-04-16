@@ -226,6 +226,8 @@ return
 			"id":           u.ID,
 			"username":     u.Username,
 			"email":        u.Email,
+			"birthDate":    u.BirthDate,
+			"addedAt":      f.CreatedAt,
 		})
 	}
 
