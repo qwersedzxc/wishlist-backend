@@ -133,7 +133,7 @@ func NewRouter(
 			r.Use(middleware.Auth(authUC, log))
 			r.Post("/image", uploadHandler.UploadImage)
 		})
-		
+
 		// Проксирование изображений (публичный доступ для обхода CORS)
 		r.Get("/proxy/image", uploadHandler.ProxyImage)
 
