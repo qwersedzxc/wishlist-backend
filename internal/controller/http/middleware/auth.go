@@ -21,12 +21,6 @@ func Auth(authUC AuthUseCase, log *slog.Logger) func(http.Handler) http.Handler 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var token string
 
-			log.Info("Auth debug",
-				"path", r.URL.Path,
-				"authHeader", r.Header.Get("Authorization"),
-				"cookie", r.Header.Get("Cookie"),
-			)
-
 			// 1. Пробуем получить токен из Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader != "" {
