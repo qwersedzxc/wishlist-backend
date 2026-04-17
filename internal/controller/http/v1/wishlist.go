@@ -104,7 +104,7 @@ func (h *WishlistHandler) CreateWishlist(w http.ResponseWriter, r *http.Request)
 // @Failure     404 {object} response.ErrorResponse
 // @Router      /wishlists/{id} [get]
 func (h *WishlistHandler) GetWishlist(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
+	idStr := chi.URLParam(r, "wishlist_id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		render.Status(r, http.StatusBadRequest)
@@ -180,7 +180,7 @@ func (h *WishlistHandler) ListWishlists(w http.ResponseWriter, r *http.Request) 
 // @Failure     404 {object} response.ErrorResponse
 // @Router      /wishlists/{id} [patch]
 func (h *WishlistHandler) UpdateWishlist(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
+	idStr := chi.URLParam(r, "wishlist_id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		render.Status(r, http.StatusBadRequest)
