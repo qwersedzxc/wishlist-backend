@@ -47,14 +47,15 @@ type CreateWishlistItemInput struct {
 
 // UpdateWishlistItemInput данные для обновления элемента вишлиста
 type UpdateWishlistItemInput struct {
-	Title       *string  `json:"title"       validate:"omitempty,min=1,max=255"`
-	Description *string  `json:"description" validate:"omitempty,max=1000"`
-	URL         *string  `json:"url"         validate:"omitempty,url"`
-	ImageURL    *string  `json:"imageUrl"    validate:"omitempty,url"`
-	Price       *float64 `json:"price"       validate:"omitempty,gte=0"`
-	Priority    *int     `json:"priority"    validate:"omitempty,gte=0,lte=10"`
-	Category    *string  `json:"category"    validate:"omitempty,max=100"`
-	IsPurchased *bool    `json:"isPurchased"`
+	Title       *string    `json:"title"       validate:"omitempty,min=1,max=255"`
+	Description *string    `json:"description" validate:"omitempty,max=1000"`
+	URL         *string    `json:"url"         validate:"omitempty,url"`
+	ImageURL    *string    `json:"imageUrl"    validate:"omitempty,url"`
+	Price       *float64   `json:"price"       validate:"omitempty,gte=0"`
+	Priority    *int       `json:"priority"    validate:"omitempty,gte=0,lte=10"`
+	Category    *string    `json:"category"    validate:"omitempty,max=100"`
+	IsPurchased *bool      `json:"isPurchased"`
+	WishlistID  *uuid.UUID `json:"wishlistId"`
 }
 
 // WishlistItemFilter фильтры для элементов вишлиста

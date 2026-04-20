@@ -206,6 +206,9 @@ func buildUpdateWishlistItem(id uuid.UUID, input dto.UpdateWishlistItemInput) sq
 	if input.IsPurchased != nil {
 		q = q.Set("is_purchased", *input.IsPurchased)
 	}
+	if input.WishlistID != nil {
+		q = q.Set("wishlist_id", *input.WishlistID)
+	}
 
 	q = q.Set("updated_at", sq.Expr("NOW()"))
 	q = q.Suffix("RETURNING id, wishlist_id, title, description, url, image_url, price, priority, category, is_purchased, created_at, updated_at")

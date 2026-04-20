@@ -536,6 +536,7 @@ func (h *WishlistHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 		Price:       req.Price,
 		Priority:    req.Priority,
 		IsPurchased: req.IsPurchased,
+		WishlistID:  req.WishlistID,
 	}
 
 	item, err := h.uc.UpdateItem(r.Context(), id, input)
