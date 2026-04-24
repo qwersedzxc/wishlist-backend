@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 type FriendshipRepo interface {
@@ -50,6 +50,15 @@ func (uc *UseCase) SendRequest(ctx context.Context, userID, friendID uuid.UUID) 
 	
 	// Если есть активная дружба (pending или accepted), запрещаем
 	if existing != nil {
+		// Если запрос уже отправлен нам (мы получатель) — принимаем его
+		if existing.Status == "pending" && existing.UserID == friendID {
+			err = uc.friendshipRepo.UpdateStatus(ctx, existing.ID, "accepted")
+			if err != nil {
+				return nil, err
+			}
+			existing.Status = "accepted"
+			return existing, nil
+		}
 		return nil, fmt.Errorf("friendship already exists")
 	}
 

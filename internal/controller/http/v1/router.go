@@ -5,22 +5,42 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/middleware"
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
-	"github.com/KaoriEl/golang-boilerplate/internal/oauth"
-	"github.com/KaoriEl/golang-boilerplate/internal/types"
-	"github.com/KaoriEl/golang-boilerplate/internal/usecase"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/middleware"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/oauth"
+	"github.com/qwersedzxc/wishlist-backend/internal/types"
+	"github.com/qwersedzxc/wishlist-backend/internal/usecase"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 // NewRouter собирает chi-роутер с маршрутами API v1 и Swagger UI.
-func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshipUC FriendshipUseCase, roleRepo RoleRepository, provider oauth.Provider, providerName string, s3cfg config.S3Cfg, emailService EmailService, log *slog.Logger) http.Handler {
+func NewRouter(
+	wishlistUC usecase.WishlistUseCase,
+	authUC AuthUseCase,
+	friendshipUC FriendshipUseCase,
+	roleRepo RoleRepository,
+	provider oauth.Provider,
+	providerName string,
+	s3cfg config.S3Cfg,
+	emailService EmailService,
+	log *slog.Logger,
+	cfg *config.Config,
+) http.Handler {
 	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Info("🔍 REQUEST RECEIVED",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"full_url", r.URL.String())
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	// Глобальные middleware
 	r.Use(middleware.Recoverer)
@@ -31,9 +51,10 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 	// CORS для работы с frontend
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
@@ -49,8 +70,10 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 		httpSwagger.URL("/swagger/doc.json"),
 	))
 
+	frontendURL := cfg.FrontendURL
+
 	wishlistHandler := newWishlistHandler(wishlistUC, log)
-	authHandler := newAuthHandler(provider, providerName, authUC, log)
+	authHandler := newAuthHandler(provider, providerName, authUC, log, frontendURL)
 	uploadHandler := newUploadHandler(log, S3Config{
 		Endpoint:        s3cfg.Endpoint,
 		AccessKeyID:     s3cfg.AccessKeyID,
@@ -60,31 +83,38 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 		Region:          s3cfg.Region,
 	})
 	friendshipHandler := newFriendshipHandler(friendshipUC, emailService, log)
-	roleHandler := NewRoleController(roleRepo)
+	roleHandler := NewRoleController(roleRepo, log)
 	roleMiddleware := middleware.NewRoleMiddleware(roleRepo)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(middleware.JSONContentType)
-		r.Route("/wishlists", func(r chi.Router) {
+		r.Route("/", func(r chi.Router) {
 			r.Get("/", wishlistHandler.ListWishlists)
 			r.With(middleware.Auth(authUC, log)).Post("/", wishlistHandler.CreateWishlist)
 
-			r.Route("/{id}", func(r chi.Router) {
-				r.Get("/", wishlistHandler.GetWishlist)
-				r.With(middleware.Auth(authUC, log)).Patch("/", wishlistHandler.UpdateWishlist)
-				r.With(middleware.Auth(authUC, log)).Delete("/", wishlistHandler.DeleteWishlist)
-			})
+			r.Route("/", func(r chi.Router) {
+				// Wishlist endpoints
+				r.Get("/wishlists", wishlistHandler.ListWishlists)
+				r.With(middleware.Auth(authUC, log)).Post("/wishlists", wishlistHandler.CreateWishlist)
 
-			r.Route("/{wishlist_id}/items", func(r chi.Router) {
-				r.With(middleware.OptionalAuth(authUC, log)).Get("/", wishlistHandler.ListItems)
-				r.With(middleware.Auth(authUC, log)).Post("/", wishlistHandler.CreateItem)
+				r.Route("/wishlists/{wishlist_id}", func(r chi.Router) {
+					r.Get("/", wishlistHandler.GetWishlist)
+					r.With(middleware.Auth(authUC, log)).Patch("/", wishlistHandler.UpdateWishlist)
+					r.With(middleware.Auth(authUC, log)).Delete("/", wishlistHandler.DeleteWishlist)
 
-				r.Route("/{id}", func(r chi.Router) {
-					r.With(middleware.OptionalAuth(authUC, log)).Get("/", wishlistHandler.GetItem)
-					r.With(middleware.Auth(authUC, log)).Patch("/", wishlistHandler.UpdateItem)
-					r.With(middleware.Auth(authUC, log)).Delete("/", wishlistHandler.DeleteItem)
-					r.With(middleware.Auth(authUC, log)).Post("/reserve", wishlistHandler.ReserveItem)
-					r.With(middleware.Auth(authUC, log)).Delete("/reserve", wishlistHandler.UnreserveItem)
+					// Item endpoints
+					r.Route("/items", func(r chi.Router) {
+						r.With(middleware.OptionalAuth(authUC, log)).Get("/", wishlistHandler.ListItems)
+						r.With(middleware.Auth(authUC, log)).Post("/", wishlistHandler.CreateItem)
+
+						r.Route("/{id}", func(r chi.Router) {
+							r.With(middleware.OptionalAuth(authUC, log)).Get("/", wishlistHandler.GetItem)
+							r.With(middleware.Auth(authUC, log)).Patch("/", wishlistHandler.UpdateItem)
+							r.With(middleware.Auth(authUC, log)).Delete("/", wishlistHandler.DeleteItem)
+							r.With(middleware.Auth(authUC, log)).Post("/reserve", wishlistHandler.ReserveItem)
+							r.With(middleware.Auth(authUC, log)).Delete("/reserve", wishlistHandler.UnreserveItem)
+						})
+					})
 				})
 			})
 		})
@@ -92,6 +122,7 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)
 			r.Post("/login", authHandler.LoginEmail)
+			r.Post("/logout", authHandler.Logout)
 			r.With(middleware.Auth(authUC, log)).Get("/me", authHandler.Me)
 			r.With(middleware.Auth(authUC, log)).Patch("/profile", authHandler.UpdateProfile)
 			r.Get("/oauth/login", authHandler.Login)
@@ -102,6 +133,9 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 			r.Use(middleware.Auth(authUC, log))
 			r.Post("/image", uploadHandler.UploadImage)
 		})
+
+		// Проксирование изображений (публичный доступ для обхода CORS)
+		r.Get("/proxy/image", uploadHandler.ProxyImage)
 
 		// Поиск пользователей (публичный)
 		r.Get("/users/search", friendshipHandler.SearchUsers)
@@ -122,11 +156,11 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 		r.Route("/roles", func(r chi.Router) {
 			r.Use(middleware.Auth(authUC, log))
 			r.Use(roleMiddleware.LoadUserRoles())
-			
+
 			// Получение информации о ролях (доступно всем авторизованным)
 			r.Get("/my", roleHandler.GetMyRoles)
 			r.Get("/user/{userId}", roleHandler.GetUserRoles)
-			
+
 			// Управление ролями (только для админов)
 			r.With(roleMiddleware.RequireAdmin()).Get("/", roleHandler.GetAllRoles)
 			r.With(roleMiddleware.RequireAdmin()).Post("/", roleHandler.CreateRole)
@@ -138,7 +172,6 @@ func NewRouter(wishlistUC usecase.WishlistUseCase, authUC AuthUseCase, friendshi
 
 	return r
 }
-
 
 // AuthUseCase интерфейс для use case аутентификации
 type AuthUseCase interface {

@@ -4,15 +4,19 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
-	"github.com/KaoriEl/golang-boilerplate/internal/helpers"
-	"github.com/KaoriEl/golang-boilerplate/internal/repository/role"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/helpers"
+	"github.com/qwersedzxc/wishlist-backend/internal/repository/role"
 )
 
 // RoleMiddleware middleware для проверки ролей и разрешений
 type RoleMiddleware struct {
 	roleRepo role.Repository
 }
+
+type contextKey string
+
+const UserWithRolesKey contextKey = "user_with_roles"
 
 // NewRoleMiddleware создает новый middleware для ролей
 func NewRoleMiddleware(roleRepo role.Repository) *RoleMiddleware {
@@ -25,26 +29,20 @@ func NewRoleMiddleware(roleRepo role.Repository) *RoleMiddleware {
 func (m *RoleMiddleware) RequireRole(roleName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, err := helpers.GetUserIDFromCtx(r.Context())
-			if err != nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
+			// Используем уже загруженные роли из контекста
+			userWithRoles := GetUserWithRoles(r)
 
-			userWithRoles, err := m.roleRepo.GetUserWithRoles(r.Context(), userID)
-			if err != nil {
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
-				return
-			}
-
-			if userWithRoles == nil || !userWithRoles.HasRole(roleName) {
+			if userWithRoles == nil {
 				http.Error(w, "Forbidden: insufficient permissions", http.StatusForbidden)
 				return
 			}
 
-			// Добавляем пользователя с ролями в контекст
-			ctx := context.WithValue(r.Context(), "user_with_roles", userWithRoles)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			if !userWithRoles.HasRole(roleName) {
+				http.Error(w, "Forbidden: insufficient permissions", http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
 		})
 	}
 }
@@ -71,7 +69,7 @@ func (m *RoleMiddleware) RequirePermission(permission string) func(http.Handler)
 			}
 
 			// Добавляем пользователя с ролями в контекст
-			ctx := context.WithValue(r.Context(), "user_with_roles", userWithRoles)
+			ctx := context.WithValue(r.Context(), UserWithRolesKey, userWithRoles)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -79,7 +77,18 @@ func (m *RoleMiddleware) RequirePermission(permission string) func(http.Handler)
 
 // RequireAdmin проверяет что пользователь является администратором
 func (m *RoleMiddleware) RequireAdmin() func(http.Handler) http.Handler {
-	return m.RequireRole("admin")
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userWithRoles := GetUserWithRoles(r)
+
+			if userWithRoles == nil || !userWithRoles.IsAdmin() {
+				http.Error(w, "Forbidden: admin access required", http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // LoadUserRoles загружает роли пользователя в контекст (не блокирует доступ)
@@ -102,8 +111,18 @@ func (m *RoleMiddleware) LoadUserRoles() func(http.Handler) http.Handler {
 
 // GetUserWithRoles получает пользователя с ролями из контекста
 func GetUserWithRoles(r *http.Request) *entity.UserWithRoles {
-	if userWithRoles, ok := r.Context().Value("user_with_roles").(*entity.UserWithRoles); ok {
-		return userWithRoles
+	// Проверяем, что значение существует в контексте
+	val := r.Context().Value("user_with_roles")
+	if val == nil {
+		return nil
 	}
-	return nil
+
+	// Проверяем, что значение имеет правильный тип
+	userWithRoles, ok := val.(*entity.UserWithRoles)
+	if !ok {
+		return nil
+	}
+
+	return userWithRoles
+
 }

@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	
-	"github.com/KaoriEl/golang-boilerplate/internal/helpers"
+
+	"github.com/qwersedzxc/wishlist-backend/internal/helpers"
 )
 
 // AuthUseCase интерфейс для валидации токенов
@@ -19,25 +19,34 @@ type AuthUseCase interface {
 func Auth(authUC AuthUseCase, log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Извлекаем токен из заголовка Authorization
+			var token string
+
+			// 1. Пробуем получить токен из Authorization header
 			authHeader := r.Header.Get("Authorization")
-			log.Info("Auth middleware", "path", r.URL.Path, "authHeader", authHeader)
-			
-			if authHeader == "" {
-				log.Warn("missing authorization header", "path", r.URL.Path)
+			if authHeader != "" {
+				parts := strings.SplitN(authHeader, " ", 2)
+				if len(parts) == 2 && parts[0] == "Bearer" {
+					token = parts[1]
+					log.Info("Token from Authorization header")
+				}
+			}
+
+			// 2. Если нет в header, пробуем из cookie
+			if token == "" {
+				cookie, err := r.Cookie("token")
+				if err == nil {
+					token = cookie.Value
+					log.Info("Token from cookie", "token_preview", token[:20]+"...")
+				} else {
+					log.Info("No token cookie found", "error", err)
+				}
+			}
+
+			if token == "" {
+				log.Warn("missing token", "path", r.URL.Path)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-
-			// Проверяем формат "Bearer <token>"
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				log.Warn("invalid authorization header format", "path", r.URL.Path, "header", authHeader)
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-
-			token := parts[1]
 
 			// Валидируем токен
 			userID, err := authUC.ValidateToken(token)
@@ -57,34 +66,39 @@ func Auth(authUC AuthUseCase, log *slog.Logger) func(http.Handler) http.Handler 
 }
 
 // OptionalAuth middleware для опциональной авторизации
-// Если токен присутствует и валиден - добавляет userID в контекст
-// Если токена нет или он невалиден - продолжает без авторизации
 func OptionalAuth(authUC AuthUseCase, log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var token string
+
+			// 1. Пробуем из header
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				// Нет токена - продолжаем без авторизации
+			if authHeader != "" {
+				parts := strings.SplitN(authHeader, " ", 2)
+				if len(parts) == 2 && parts[0] == "Bearer" {
+					token = parts[1]
+				}
+			}
+
+			// 2. Пробуем из cookie
+			if token == "" {
+				cookie, err := r.Cookie("token")
+				if err == nil {
+					token = cookie.Value
+				}
+			}
+
+			if token == "" {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				// Неправильный формат - продолжаем без авторизации
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			token := parts[1]
 			userID, err := authUC.ValidateToken(token)
 			if err != nil {
-				// Невалидный токен - продолжаем без авторизации
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// Токен валиден - добавляем userID в контекст
 			ctx := helpers.WithUserID(r.Context(), userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

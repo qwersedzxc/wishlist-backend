@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 // dbWishlist структура для сканирования из БД
@@ -24,13 +24,13 @@ type dbWishlist struct {
 	CreatedAt    time.Time   `db:"created_at"`
 	UpdatedAt    time.Time   `db:"updated_at"`
 	// Поля автора (из JOIN с users)
-	AuthorUsername  *string `db:"author_username"`
-	AuthorFullName  *string `db:"author_full_name"`
-	AuthorAvatarURL *string `db:"author_avatar_url"`
-	AuthorBio       *string `db:"author_bio"`
-	AuthorCity      *string `db:"author_city"`
-	AuthorPhone     *string `db:"author_phone"`
-	AuthorBirthDate *string `db:"author_birth_date"`
+	AuthorUsername  *string    `db:"author_username"`
+	AuthorFullName  *string    `db:"author_full_name"`
+	AuthorAvatarURL *string    `db:"author_avatar_url"`
+	AuthorBio       *string    `db:"author_bio"`
+	AuthorCity      *string    `db:"author_city"`
+	AuthorPhone     *string    `db:"author_phone"`
+	AuthorBirthDate *time.Time `db:"author_birth_date"`
 }
 
 func (db dbWishlist) toEntity() entity.Wishlist {

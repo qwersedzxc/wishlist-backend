@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/database"
+	"github.com/qwersedzxc/wishlist-backend/internal/database"
 	"github.com/spf13/cobra"
 )
 

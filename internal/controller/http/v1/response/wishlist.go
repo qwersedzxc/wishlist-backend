@@ -5,19 +5,19 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 // WishlistAuthor данные автора вишлиста
 type WishlistAuthor struct {
-	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
-	FullName  *string   `json:"fullName,omitempty"`
-	AvatarURL *string   `json:"avatarUrl,omitempty"`
-	Bio       *string   `json:"bio,omitempty"`
-	City      *string   `json:"city,omitempty"`
-	Phone     *string   `json:"phone,omitempty"`
-	BirthDate *string   `json:"birthDate,omitempty"`
+	ID        uuid.UUID  `json:"id"`
+	Username  string     `json:"username"`
+	FullName  *string    `json:"fullName,omitempty"`
+	AvatarURL *string    `json:"avatarUrl,omitempty"`
+	Bio       *string    `json:"bio,omitempty"`
+	City      *string    `json:"city,omitempty"`
+	Phone     *string    `json:"phone,omitempty"`
+	BirthDate *time.Time `json:"birthDate,omitempty"`
 }
 
 // WishlistResponse ответ с данными вишлиста
@@ -89,22 +89,22 @@ func NewWishlistListResponse(wishlists []entity.Wishlist, total, page int) Wishl
 
 // WishlistItemResponse ответ с данными элемента вишлиста
 type WishlistItemResponse struct {
-	ID                     uuid.UUID  `json:"id"`
-	WishlistID             uuid.UUID  `json:"wishlistId"`
-	Title                  string     `json:"title"`
-	Description            *string    `json:"description"`
-	URL                    *string    `json:"url"`
-	ImageURL               *string    `json:"imageUrl"`
-	Price                  *float64   `json:"price"`
-	Priority               int        `json:"priority"`
-	Category               *string    `json:"category"`
-	IsPurchased            bool       `json:"isPurchased"`
-	IsReserved             bool       `json:"isReserved"`
-	ReservedByMe           bool       `json:"reservedByMe"`
-	IsIncognitoReservation bool       `json:"isIncognitoReservation"`
-	ReservedBy             *UserInfo  `json:"reservedBy,omitempty"`
-	CreatedAt              time.Time  `json:"createdAt"`
-	UpdatedAt              time.Time  `json:"updatedAt"`
+	ID                     uuid.UUID `json:"id"`
+	WishlistID             uuid.UUID `json:"wishlistId"`
+	Title                  string    `json:"title"`
+	Description            *string   `json:"description"`
+	URL                    *string   `json:"url"`
+	ImageURL               *string   `json:"imageUrl"`
+	Price                  *float64  `json:"price"`
+	Priority               int       `json:"priority"`
+	Category               *string   `json:"category"`
+	IsPurchased            bool      `json:"isPurchased"`
+	IsReserved             bool      `json:"isReserved"`
+	ReservedByMe           bool      `json:"reservedByMe"`
+	IsIncognitoReservation bool      `json:"isIncognitoReservation"`
+	ReservedBy             *UserInfo `json:"reservedBy,omitempty"`
+	CreatedAt              time.Time `json:"createdAt"`
+	UpdatedAt              time.Time `json:"updatedAt"`
 }
 
 // UserInfo краткая информация о пользователе

@@ -8,8 +8,8 @@ import (
 	"net/smtp"
 	"strings"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
-	"github.com/KaoriEl/golang-boilerplate/internal/types"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
+	"github.com/qwersedzxc/wishlist-backend/internal/types"
 )
 
 // Service предоставляет функции для отправки email

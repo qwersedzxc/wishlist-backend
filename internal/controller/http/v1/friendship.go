@@ -10,10 +10,10 @@ import (
 	"github.com/google/uuid"
 	"log/slog"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/controller/http/v1/response"
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
-	"github.com/KaoriEl/golang-boilerplate/internal/helpers"
-	"github.com/KaoriEl/golang-boilerplate/internal/types"
+	"github.com/qwersedzxc/wishlist-backend/internal/controller/http/v1/response"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/helpers"
+	"github.com/qwersedzxc/wishlist-backend/internal/types"
 )
 
 type FriendshipUseCase interface {
@@ -226,6 +226,8 @@ return
 			"id":           u.ID,
 			"username":     u.Username,
 			"email":        u.Email,
+			"birthDate":    u.BirthDate,
+			"addedAt":      f.CreatedAt,
 		})
 	}
 

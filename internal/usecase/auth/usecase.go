@@ -10,22 +10,24 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/dto"
-	"github.com/KaoriEl/golang-boilerplate/internal/entity"
+	"github.com/qwersedzxc/wishlist-backend/internal/dto"
+	"github.com/qwersedzxc/wishlist-backend/internal/entity"
 )
 
 type UseCase struct {
-	userRepo UserRepository
-	roleRepo RoleRepository
+	userRepo  UserRepository
+	roleRepo  RoleRepository
 	jwtSecret string
-	log      *slog.Logger
+	log       *slog.Logger
+	jwtExpiry time.Duration
 }
 
-func New(userRepo UserRepository, roleRepo RoleRepository, jwtSecret string, log *slog.Logger) *UseCase {
+func New(userRepo UserRepository, roleRepo RoleRepository, jwtSecret string, jwtExpiry time.Duration, log *slog.Logger) *UseCase {
 	return &UseCase{
 		userRepo:  userRepo,
 		roleRepo:  roleRepo,
 		jwtSecret: jwtSecret,
+		jwtExpiry: jwtExpiry,
 		log:       log,
 	}
 }

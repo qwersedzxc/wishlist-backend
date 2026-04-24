@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )

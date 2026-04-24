@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/KaoriEl/golang-boilerplate/internal/config"
+	"github.com/qwersedzxc/wishlist-backend/internal/config"
 	"golang.org/x/oauth2"
 )
 
